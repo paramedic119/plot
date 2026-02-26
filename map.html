@@ -178,7 +178,7 @@
             async function fetchData() {
                 document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
                 try {
-                    const response = await fetch(gasUrl);
+                    const response = await fetch(gasUrl + "?type=map");
                     const data = await response.json();
                     if (data && data.length > 0) {
                         plotOnMap(data);
