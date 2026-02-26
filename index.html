@@ -15,6 +15,10 @@
             --glass-border: rgba(255, 255, 255, 0.1);
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Outfit', 'Inter', sans-serif;
             background: radial-gradient(circle at top right, #1e293b, #0f172a);
@@ -157,6 +161,8 @@
             background: #0f172a;
             border: 1px solid #1e293b;
             border-radius: 12px;
+            max-width: 100%;
+            height: auto;
         }
 
         #bowlCanvas {
@@ -196,15 +202,56 @@
             vertical-align: middle;
             border-radius: 1px;
         }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .controls {
+                padding: 15px;
+            }
+
+            .btn-group {
+                flex-direction: column !important;
+                width: 100%;
+            }
+
+            .btn-group button,
+            .btn-group a {
+                width: 100% !important;
+                text-align: center;
+            }
+
+            .slider-wrap {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .charts-wrapper {
+                gap: 12px;
+            }
+
+            .chart-container {
+                padding: 12px;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+        }
     </style>
 </head>
 
 <body>
     <h1>INTEGRATED ANALYTICS</h1>
     <div class="controls">
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
-            <button id="syncBtn"
+        <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+            <button id="syncBtn" onclick="syncFromCloud(false)"
                 style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">最新に同期</button>
+            <button id="resetBtn"
+                style="padding: 12px 16px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">データリセット</button>
             <a href="map.html" target="_blank"
                 style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">地図で解析・ヒートマップ</a>
         </div>
