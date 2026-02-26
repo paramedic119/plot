@@ -203,7 +203,9 @@
     <h1>INTEGRATED ANALYTICS</h1>
     <div class="controls">
         <input type="file" id="csvFileInput" accept=".csv" multiple>
-        <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">生データロガーのCSVを読み込んでください</div>
+        <button id="syncBtn"
+            style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-left: 10px; margin-bottom: 20px;">クラウドから同期</button>
+        <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">CSVを読み込むか、クラウドから同期してください</div>
 
         <div class="filter-control">
             <div style="font-weight: 600;">L-PASS FILTER STRENGTH</div>
@@ -263,6 +265,7 @@
         const filterValueDisplay = document.getElementById('filterValueDisplay');
         const thresholdDisplay = document.getElementById('thresholdDisplay');
         const thresholdValues = document.getElementById('thresholdValues');
+        const syncBtn = document.getElementById('syncBtn');
 
         let rawData = [];
 
@@ -419,6 +422,41 @@
             document.getElementById('statsDisplay').innerText = `Data Points: ${processedData.length} | Comfort: ${safeC} | Uncomfort: ${dangerC}`;
         }
 
+        async function syncFromCloud() {
+            const gasUrl = "https://script.google.com/macros/s/AKfycbzdMTc8l3Fet-S1-0YNZALuGPvKUXaupTW1odqJnBNrPl-zsxWX2uFhQ0hdzd0rSZBxYg/exec";
+            document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
+            syncBtn.disabled = true;
+
+            try {
+                const response = await fetch(gasUrl);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    rawData = data.map(row => ({
+                        time: parseInt(row.time_ms),
+                        uncomf: parseInt(row.uncomfortable),
+                        rawX: parseFloat(row.rawG_X),
+                        rawY: parseFloat(row.rawG_Y),
+                        rawZ: parseFloat(row.rawG_Z || 0),
+                        jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
+                        yaw: parseFloat(row.yaw_rad || 0),
+                        lat: parseFloat(row.lat || 0),
+                        lon: parseFloat(row.lon || 0)
+                    }));
+                    rawData.sort((a, b) => a.time - b.time);
+                    processAndPlot();
+                    document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
+                } else {
+                    document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした";
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
+            } finally {
+                syncBtn.disabled = false;
+            }
+        }
+
+        syncBtn.addEventListener('click', syncFromCloud);
         filterSlider.addEventListener('input', processAndPlot);
 
         document.getElementById('csvFileInput').addEventListener('change', (e) => {
