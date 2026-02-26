@@ -225,7 +225,7 @@
                     const jerk = Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2);
                     const uncomf = parseInt(row.uncomfortable);
 
-                    if (uncomf === 1 || jerk > 0.4) {
+                    if (uncomf === 1 || jerk > 0.2) {
                         const color = uncomf === 1 ? '#a855f7' : (jerk > 0.5 ? '#ef4444' : '#fbbf24');
                         const marker = new google.maps.Marker({
                             position: pos,
