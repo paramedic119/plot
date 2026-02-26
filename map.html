@@ -131,20 +131,12 @@
 
         <script>
             const gasUrl = "https://script.google.com/macros/s/AKfycbzdMTc8l3Fet-S1-0YNZALuGPvKUXaupTW1odqJnBNrPl-zsxWX2uFhQ0hdzd0rSZBxYg/exec";
+            const API_KEY = "AIzaSyC6sClX278FbJ-mA-OoSU9841M68Ies8PE";
             let map;
             let markers = [];
             let polyline;
 
-            // API Key Placeholder - To be replaced by user
-            const API_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
-
             async function initMap() {
-                if (API_KEY === "YOUR_GOOGLE_MAPS_API_KEY") {
-                    document.getElementById('map').innerHTML = "<div style='padding:100px; text-align:center;'><h2>Google Maps API キーが設定されていません</h2><p>手順に従ってキーを取得し、貼り付けてください。</p></div>";
-                    return;
-                }
-
-                // Load Google Maps script
                 const script = document.createElement('script');
                 script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=setupMap`;
                 script.async = true;
@@ -152,15 +144,33 @@
             }
 
             function setupMap() {
+                const darkStyles = [
+                    { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
+                    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
+                    { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
+                    { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+                    { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+                    { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#263c3f" }] },
+                    { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#6b9a76" }] },
+                    { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
+                    { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#212a37" }] },
+                    { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#9ca5b3" }] },
+                    { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#746855" }] },
+                    { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1f2835" }] },
+                    { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#f3d19c" }] },
+                    { "featureType": "transit", "elementType": "geometry", "stylers": [{ "color": "#2f3948" }] },
+                    { "featureType": "transit.station", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] },
+                    { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#515c6d" }] },
+                    { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
+                ];
+
                 map = new google.maps.Map(document.getElementById("map"), {
                     zoom: 15,
-                    center: { lat: 35.6812, lng: 139.7671 }, // Default to Tokyo
-                    styles: [
-                        { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
-                        { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
-                        { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
-                        // ... Dark mode styles
-                    ]
+                    center: { lat: 35.6812, lng: 139.7671 },
+                    styles: darkStyles,
+                    mapTypeControl: false,
+                    streetViewControl: true
                 });
                 fetchData();
             }
@@ -176,14 +186,12 @@
                     }
                 } catch (e) {
                     console.error(e);
-                    document.getElementById('status').innerText = "❌ 同期失敗";
+                    document.getElementById('status').innerText = "❌ 同期失敗: " + e.message;
                 }
             }
 
             function plotOnMap(data) {
                 if (!map) return;
-
-                // Clear previous items
                 if (polyline) polyline.setMap(null);
                 markers.forEach(m => m.setMap(null));
                 markers = [];
@@ -191,7 +199,7 @@
                 const path = [];
                 let bounds = new google.maps.LatLngBounds();
 
-                data.forEach((row, i) => {
+                data.forEach((row) => {
                     const lat = parseFloat(row.lat);
                     const lon = parseFloat(row.lon);
                     if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
@@ -200,7 +208,6 @@
                     path.push(pos);
                     bounds.extend(pos);
 
-                    // Jerk-based Heatmap / Dynamic Markers
                     const jerk = Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2);
                     const uncomf = parseInt(row.uncomfortable);
 
@@ -212,7 +219,7 @@
                             icon: {
                                 path: google.maps.SymbolPath.CIRCLE,
                                 fillColor: color,
-                                fillOpacity: 0.8,
+                                fillOpacity: 0.9,
                                 strokeWeight: 1,
                                 strokeColor: '#fff',
                                 scale: uncomf === 1 ? 8 : 5
@@ -221,11 +228,11 @@
 
                         const infoWindow = new google.maps.InfoWindow({
                             content: `
-                            <div style="color:black; font-size:12px;">
-                                <b>Event Details</b><br>
-                                Jerk: ${jerk.toFixed(3)} G/s<br>
-                                Vertical G: ${row.rawG_Z}<br>
-                                Uncomfort: ${uncomf === 1 ? 'YES' : 'NO'}
+                            <div style="color:black; font-size:12px; font-family:sans-serif;">
+                                <b style="font-size:14px;">Driving Detail</b><hr>
+                                <b>Jerk:</b> ${jerk.toFixed(3)} G/s<br>
+                                <b>Vertical G:</b> ${parseFloat(row.rawG_Z || 0).toFixed(2)}<br>
+                                <b>Uncomfort:</b> ${uncomf === 1 ? '<span style="color:red">YES</span>' : 'NO'}
                             </div>
                         `
                         });
@@ -237,13 +244,12 @@
                     }
                 });
 
-                // Draw line
                 polyline = new google.maps.Polyline({
                     path: path,
                     geodesic: true,
                     strokeColor: "#10b981",
-                    strokeOpacity: 0.5,
-                    strokeWeight: 3,
+                    strokeOpacity: 0.7,
+                    strokeWeight: 4,
                     map: map
                 });
 
