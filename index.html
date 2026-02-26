@@ -318,7 +318,7 @@
             if (rawData.length === 0) return;
 
             const windowSize = parseInt(filterSlider.value);
-            filterValueDisplay.innerText = `現在の設定: 過去 ${windowSize} サンプル (約 ${(windowSize * 0.02).toFixed(2)} 秒)`;
+            filterValueDisplay.innerText = `現在の設定: 過去 ${windowSize} サンプル (約 ${(windowSize * 0.05).toFixed(2)} 秒)`;
 
             let processedData = [];
             for (let i = 0; i < rawData.length; i++) {
