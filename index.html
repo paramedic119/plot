@@ -268,6 +268,7 @@
         const syncBtn = document.getElementById('syncBtn');
 
         let rawData = [];
+        let wakeLock = null;
 
         const bCenter = 200; const bRadiusScale = 200 / 0.5;
         const padding = 50; const pWidth = 400; const pHeight = 300;
@@ -458,6 +459,27 @@
 
         syncBtn.addEventListener('click', syncFromCloud);
         filterSlider.addEventListener('input', processAndPlot);
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active');
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+
+        // Request wake lock on page load/user interaction
+        window.addEventListener('load', requestWakeLock);
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+        document.addEventListener('touchstart', requestWakeLock, { once: true });
+        document.addEventListener('mousedown', requestWakeLock, { once: true });
 
         document.getElementById('csvFileInput').addEventListener('change', (e) => {
             const files = e.target.files; if (files.length === 0) return;
