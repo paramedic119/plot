@@ -428,7 +428,12 @@
                     <div>Jerk: <b>${threshJerk.toFixed(2)} G/s</b></div>
                     <div>Combined: <b>${threshG.toFixed(2)} G</b></div>
                 `;
-            } else { thresholdDisplay.style.display = 'none'; }
+            } else {
+                thresholdDisplay.style.display = 'none';
+                if (dangerC > 0 && dangerC < 20) {
+                    document.getElementById('statsDisplay').innerText += " (統計計算には不快データが20件以上必要です)";
+                }
+            }
             document.getElementById('statsDisplay').innerText = `Data Points: ${processedData.length} | Comfort: ${safeC} | Uncomfort: ${dangerC}`;
         }
 
