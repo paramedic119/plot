@@ -204,7 +204,10 @@
     <div class="controls">
         <input type="file" id="csvFileInput" accept=".csv" multiple>
         <button id="syncBtn"
-            style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-left: 10px; margin-bottom: 20px;">クラウドから同期</button>
+            style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-left: 10px; margin-bottom: 20px;">クラウド同期</button>
+        <label style="margin-left: 15px; font-size: 0.9rem; color: #cbd5e1; cursor: pointer;">
+            <input type="checkbox" id="autoRefreshCheck"> リアルタイム監視 (5秒周期)
+        </label>
         <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">CSVを読み込むか、クラウドから同期してください</div>
 
         <div class="filter-control">
@@ -266,9 +269,11 @@
         const thresholdDisplay = document.getElementById('thresholdDisplay');
         const thresholdValues = document.getElementById('thresholdValues');
         const syncBtn = document.getElementById('syncBtn');
+        const autoRefreshCheck = document.getElementById('autoRefreshCheck');
 
         let rawData = [];
         let wakeLock = null;
+        let refreshInterval = null;
 
         const bCenter = 200; const bRadiusScale = 200 / 0.5;
         const padding = 50; const pWidth = 400; const pHeight = 300;
@@ -423,10 +428,12 @@
             document.getElementById('statsDisplay').innerText = `Data Points: ${processedData.length} | Comfort: ${safeC} | Uncomfort: ${dangerC}`;
         }
 
-        async function syncFromCloud() {
+        async function syncFromCloud(isAuto = false) {
             const gasUrl = "https://script.google.com/macros/s/AKfycbzdMTc8l3Fet-S1-0YNZALuGPvKUXaupTW1odqJnBNrPl-zsxWX2uFhQ0hdzd0rSZBxYg/exec";
-            document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
-            syncBtn.disabled = true;
+            if (!isAuto) {
+                document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
+                syncBtn.disabled = true;
+            }
 
             try {
                 const response = await fetch(gasUrl);
@@ -445,19 +452,28 @@
                     }));
                     rawData.sort((a, b) => a.time - b.time);
                     processAndPlot();
-                    document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
                 } else {
-                    document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした";
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした";
                 }
             } catch (e) {
                 console.error(e);
-                document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
+                if (!isAuto) document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
             } finally {
-                syncBtn.disabled = false;
+                if (!isAuto) syncBtn.disabled = false;
             }
         }
 
-        syncBtn.addEventListener('click', syncFromCloud);
+        autoRefreshCheck.addEventListener('change', () => {
+            if (autoRefreshCheck.checked) {
+                syncFromCloud(true);
+                refreshInterval = setInterval(() => syncFromCloud(true), 5000);
+            } else {
+                clearInterval(refreshInterval);
+            }
+        });
+
+        syncBtn.addEventListener('click', () => syncFromCloud(false));
         filterSlider.addEventListener('input', processAndPlot);
 
         async function requestWakeLock() {
