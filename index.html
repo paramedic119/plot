@@ -461,7 +461,10 @@
         async function syncFromCloud(isAuto) {
             if (!isAuto) { document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中..."; syncBtn.disabled = true; }
             try {
-                const response = await fetch(gasUrl);
+                // Add timestamp to bypass cache
+                const response = await fetch(gasUrl + "?t=" + Date.now());
+                if (!response.ok) throw new Error("Server response was " + response.status);
+
                 const data = await response.json();
                 if (data && data.length > 0) {
                     rawData = data.map(row => ({
@@ -473,8 +476,14 @@
                     rawData.sort((a, b) => a.time - b.time);
                     processAndPlot();
                     if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
-                } else { if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした"; }
-            } catch (e) { console.error(e); if (!isAuto) document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message; }
+                } else {
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした (配信なし)";
+                    rawData = []; processAndPlot();
+                }
+            } catch (e) {
+                console.error(e);
+                if (!isAuto) document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
+            }
             finally { if (!isAuto) syncBtn.disabled = false; }
         }
 

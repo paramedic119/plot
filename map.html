@@ -192,11 +192,18 @@
             async function fetchData() {
                 document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
                 try {
-                    const response = await fetch(gasUrl + "?type=map");
+                    // Add timestamp to bypass cache
+                    const response = await fetch(gasUrl + "?type=map&t=" + Date.now());
+                    if (!response.ok) throw new Error("Server response was " + response.status);
+
                     const data = await response.json();
                     if (data && data.length > 0) {
                         plotOnMap(data);
                         document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
+                    } else {
+                        document.getElementById('status').innerText = "⚠️ データが見つかりませんでした (配信なし)";
+                        if (polyline) polyline.setMap(null);
+                        markers.forEach(m => m.setMap(null));
                     }
                 } catch (e) {
                     console.error(e);
