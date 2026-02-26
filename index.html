@@ -202,9 +202,13 @@
 <body>
     <h1>INTEGRATED ANALYTICS</h1>
     <div class="controls">
-        <button id="syncBtn"
-            style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-bottom: 20px;">最新データに同期</button>
-        <label style="margin-left: 15px; font-size: 0.9rem; color: #cbd5e1; cursor: pointer;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+            <button id="syncBtn"
+                style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">最新に同期</button>
+            <a href="map.html" target="_blank"
+                style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">地図で解析・ヒートマップ</a>
+        </div>
+        <label style="margin-left: 0; font-size: 0.9rem; color: #cbd5e1; cursor: pointer;">
             <input type="checkbox" id="autoRefreshCheck"> リアルタイム監視 (5秒周期)
         </label>
         <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">スプレッドシートからデータを取得中...</div>

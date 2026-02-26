@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAP ANALYTICS - Driving App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@600;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent: #10b981;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 15px 25px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        h1 {
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+
+        #map {
+            flex-grow: 1;
+            width: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background: var(--card-bg);
+            backdrop-filter: blur(15px);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 250px;
+            z-index: 10;
+        }
+
+        .legend {
+            margin-top: 15px;
+            font-size: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        #status {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>MAP ANALYTICS</h1>
+        <div id="status">クラウドからデータを取得中...</div>
+    </header>
+
+    <div id="map"></div>
+
+    <div class="controls">
+        <button onclick="fetchData()">最新データに更新</button>
+        <div style="font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;">Jerk Intensity (Heatmap)</div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="dot" style="background: #10b981;"></div> Smooth (< 0.2 G/s)</div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: #fbbf24;"></div> Moderate
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: #ef4444;"></div> Impact (> 0.5 G/s)
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: #a855f7;"></div> Uncomfortable Marker
+                    </div>
+            </div>
+        </div>
+
+        <script>
+            const gasUrl = "https://script.google.com/macros/s/AKfycbzdMTc8l3Fet-S1-0YNZALuGPvKUXaupTW1odqJnBNrPl-zsxWX2uFhQ0hdzd0rSZBxYg/exec";
+            let map;
+            let markers = [];
+            let polyline;
+
+            // API Key Placeholder - To be replaced by user
+            const API_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
+
+            async function initMap() {
+                if (API_KEY === "YOUR_GOOGLE_MAPS_API_KEY") {
+                    document.getElementById('map').innerHTML = "<div style='padding:100px; text-align:center;'><h2>Google Maps API キーが設定されていません</h2><p>手順に従ってキーを取得し、貼り付けてください。</p></div>";
+                    return;
+                }
+
+                // Load Google Maps script
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=setupMap`;
+                script.async = true;
+                document.head.appendChild(script);
+            }
+
+            function setupMap() {
+                map = new google.maps.Map(document.getElementById("map"), {
+                    zoom: 15,
+                    center: { lat: 35.6812, lng: 139.7671 }, // Default to Tokyo
+                    styles: [
+                        { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
+                        { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
+                        { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
+                        // ... Dark mode styles
+                    ]
+                });
+                fetchData();
+            }
+
+            async function fetchData() {
+                document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
+                try {
+                    const response = await fetch(gasUrl);
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        plotOnMap(data);
+                        document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    document.getElementById('status').innerText = "❌ 同期失敗";
+                }
+            }
+
+            function plotOnMap(data) {
+                if (!map) return;
+
+                // Clear previous items
+                if (polyline) polyline.setMap(null);
+                markers.forEach(m => m.setMap(null));
+                markers = [];
+
+                const path = [];
+                let bounds = new google.maps.LatLngBounds();
+
+                data.forEach((row, i) => {
+                    const lat = parseFloat(row.lat);
+                    const lon = parseFloat(row.lon);
+                    if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
+
+                    const pos = { lat, lng: lon };
+                    path.push(pos);
+                    bounds.extend(pos);
+
+                    // Jerk-based Heatmap / Dynamic Markers
+                    const jerk = Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2);
+                    const uncomf = parseInt(row.uncomfortable);
+
+                    if (uncomf === 1 || jerk > 0.4) {
+                        const color = uncomf === 1 ? '#a855f7' : (jerk > 0.5 ? '#ef4444' : '#fbbf24');
+                        const marker = new google.maps.Marker({
+                            position: pos,
+                            map: map,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                fillColor: color,
+                                fillOpacity: 0.8,
+                                strokeWeight: 1,
+                                strokeColor: '#fff',
+                                scale: uncomf === 1 ? 8 : 5
+                            }
+                        });
+
+                        const infoWindow = new google.maps.InfoWindow({
+                            content: `
+                            <div style="color:black; font-size:12px;">
+                                <b>Event Details</b><br>
+                                Jerk: ${jerk.toFixed(3)} G/s<br>
+                                Vertical G: ${row.rawG_Z}<br>
+                                Uncomfort: ${uncomf === 1 ? 'YES' : 'NO'}
+                            </div>
+                        `
+                        });
+
+                        marker.addListener("click", () => {
+                            infoWindow.open(map, marker);
+                        });
+                        markers.push(marker);
+                    }
+                });
+
+                // Draw line
+                polyline = new google.maps.Polyline({
+                    path: path,
+                    geodesic: true,
+                    strokeColor: "#10b981",
+                    strokeOpacity: 0.5,
+                    strokeWeight: 3,
+                    map: map
+                });
+
+                if (path.length > 0) map.fitBounds(bounds);
+            }
+
+            window.onload = initMap;
+        </script>
+</body>
+
+</html>
