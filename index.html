@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ライド品質 統合分析ツール</title>
+    <style>
+        :root {
+            --primary: #4fc3f7;
+            --accent: #f44336;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Outfit', 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .controls {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            padding: 24px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: var(--glass);
+            color: white;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            cursor: pointer;
+            width: 80%;
+        }
+
+        .filter-control {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .slider-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            max-width: 400px;
+            accent-color: var(--primary);
+        }
+
+        #thresholdDisplay {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            border-radius: 16px;
+            text-align: left;
+            display: none;
+            backdrop-filter: blur(4px);
+        }
+
+        .threshold-title {
+            color: #ffcccc;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .threshold-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .rationale {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            line-height: 1.6;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 12px;
+        }
+
+        .rationale strong {
+            color: #e2e8f0;
+        }
+
+        .charts-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #cbd5e1;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        canvas {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+        }
+
+        #bowlCanvas {
+            border-radius: 50%;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .dot.safe {
+            background-color: rgba(76, 175, 80, 0.5);
+        }
+
+        .dot.danger {
+            background-color: rgba(244, 67, 54, 0.8);
+        }
+
+        .line-legend {
+            width: 18px;
+            height: 2px;
+            background-color: #ff3b30;
+            display: inline-block;
+            margin-right: 6px;
+            vertical-align: middle;
+            border-radius: 1px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>INTEGRATED ANALYTICS</h1>
+    <div class="controls">
+        <input type="file" id="csvFileInput" accept=".csv" multiple>
+        <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">生データロガーのCSVを読み込んでください</div>
+
+        <div class="filter-control">
+            <div style="font-weight: 600;">L-PASS FILTER STRENGTH</div>
+            <div style="font-size: 0.75rem; color:#64748b; margin-top: 4px;">ノイズ除去に伴い、閾値ラインもリアルタイムに再計算されます</div>
+            <div class="slider-wrap">
+                <span style="font-size: 0.8rem; color: #475569;">弱</span>
+                <input type="range" id="filterSlider" min="1" max="50" value="10">
+                <span style="font-size: 0.8rem; color: #475569;">強</span>
+            </div>
+            <div id="filterValueDisplay"
+                style="margin-top:10px; color:var(--primary); font-size: 0.85rem; font-weight: 600;">現在の設定: 過去 10 サンプル
+                (約 0.2 秒)</div>
+        </div>
+
+        <div id="thresholdDisplay">
+            <div class="threshold-title">自動算出された不快閾値限界</div>
+            <div class="threshold-values" id="thresholdValues"></div>
+            <div class="rationale">
+                <strong>【統計的根拠 (95th Percentile)】</strong><br>
+                不快申告データの95パーセンタイル値を採用し、タッチミス等の外れ値を統計的に排除しています。
+                これにより、<strong>『実際の不快事象の95%をカバーする客観的な境界線』</strong>を導き出しています。
+            </div>
+        </div>
+
+        <div class="legend">
+            <div><span class="dot safe"></span>快適エリア</div>
+            <div><span class="dot danger"></span>不快申告</div>
+            <div><span class="line-legend"></span>自動算出閾値ライン</div>
+        </div>
+    </div>
+
+    <div class="charts-wrapper">
+        <div class="chart-container">
+            <div class="chart-title">G-Bowl Plane (Lon/Lat G)</div>
+            <canvas id="bowlCanvas" width="400" height="400"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">Jerk vs Composite G (Impact)</div>
+            <canvas id="jerkCanvas" width="500" height="400"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">Vertical G (Z-Axis) Timeline</div>
+            <canvas id="verticalCanvas" width="500" height="200"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">Heading (Yaw) & GPS Path (Relative)</div>
+            <canvas id="pathCanvas" width="400" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const bowlCtx = document.getElementById('bowlCanvas').getContext('2d');
+        const jerkCtx = document.getElementById('jerkCanvas').getContext('2d');
+        const verticalCtx = document.getElementById('verticalCanvas').getContext('2d');
+        const pathCtx = document.getElementById('pathCanvas').getContext('2d');
+        const filterSlider = document.getElementById('filterSlider');
+        const filterValueDisplay = document.getElementById('filterValueDisplay');
+        const thresholdDisplay = document.getElementById('thresholdDisplay');
+        const thresholdValues = document.getElementById('thresholdValues');
+
+        let rawData = [];
+
+        const bCenter = 200; const bRadiusScale = 200 / 0.5;
+        const padding = 50; const pWidth = 400; const pHeight = 300;
+        const jMaxX = 1.0; const jMaxY = 0.5;
+
+        function drawGrids() {
+            bowlCtx.clearRect(0, 0, 400, 400); bowlCtx.strokeStyle = '#1e293b'; bowlCtx.fillStyle = '#475569';
+            bowlCtx.beginPath(); bowlCtx.moveTo(0, bCenter); bowlCtx.lineTo(400, bCenter); bowlCtx.moveTo(bCenter, 0); bowlCtx.lineTo(bCenter, 400); bowlCtx.stroke();
+            bowlCtx.font = '10px sans-serif';
+            for (let g = 0.1; g <= 0.4; g += 0.1) {
+                bowlCtx.beginPath(); bowlCtx.arc(bCenter, bCenter, g * bRadiusScale, 0, Math.PI * 2); bowlCtx.stroke();
+                bowlCtx.fillText(`${g.toFixed(1)}G`, bCenter + 5, bCenter - (g * bRadiusScale) + 12);
+            }
+            jerkCtx.clearRect(0, 0, 500, 400); jerkCtx.fillStyle = '#0f172a'; jerkCtx.fillRect(0, 0, 500, 400);
+            jerkCtx.strokeStyle = '#1e293b'; jerkCtx.beginPath(); jerkCtx.moveTo(padding, padding); jerkCtx.lineTo(padding, 350); jerkCtx.lineTo(450, 350); jerkCtx.stroke();
+            jerkCtx.fillStyle = '#475569'; jerkCtx.textAlign = 'center';
+            for (let i = 0; i <= 10; i += 2) { let x = padding + (i / 10 / jMaxX) * pWidth; jerkCtx.fillText((i / 10).toFixed(1), x, 370); }
+            jerkCtx.fillText('Jerk / 加加加速度 (G/s)', 250, 390);
+            jerkCtx.textAlign = 'right'; jerkCtx.textBaseline = 'middle';
+            jerkCtx.textAlign = 'right'; jerkCtx.textBaseline = 'middle';
+            for (let i = 0; i <= 5; i += 1) { let y = 350 - (i / 10 / jMaxY) * pHeight; jerkCtx.fillText((i / 10).toFixed(1), padding - 10, y); }
+
+            // Vertical G Grid
+            verticalCtx.clearRect(0, 0, 500, 200); verticalCtx.strokeStyle = '#1e293b';
+            verticalCtx.beginPath(); verticalCtx.moveTo(padding, 100); verticalCtx.lineTo(450, 100); verticalCtx.stroke();
+            verticalCtx.fillStyle = '#475569'; verticalCtx.font = '10px sans-serif';
+            verticalCtx.fillText('0G', padding - 5, 100);
+            verticalCtx.fillText('+0.5G', padding - 5, 50);
+            verticalCtx.fillText('-0.5G', padding - 5, 150);
+
+            // Path Grid
+            pathCtx.clearRect(0, 0, 400, 400); pathCtx.strokeStyle = '#1e293b';
+            pathCtx.beginPath(); pathCtx.moveTo(0, 200); pathCtx.lineTo(400, 200); pathCtx.moveTo(200, 0); pathCtx.lineTo(200, 400); pathCtx.stroke();
+        }
+
+        function processAndPlot() {
+            drawGrids();
+            if (rawData.length === 0) return;
+
+            const windowSize = parseInt(filterSlider.value);
+            filterValueDisplay.innerText = `現在の設定: 過去 ${windowSize} サンプル (約 ${(windowSize * 0.02).toFixed(2)} 秒)`;
+
+            let processedData = [];
+            for (let i = 0; i < rawData.length; i++) {
+                let sumX = 0; let sumY = 0; let count = 0;
+                for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
+                    sumX += rawData[j].rawX; sumY += rawData[j].rawY; count++;
+                }
+                let smoothX = sumX / count; let smoothY = sumY / count;
+                processedData.push({
+                    time: rawData[i].time, uncomf: rawData[i].uncomf,
+                    sX: smoothX, sY: smoothY,
+                    rawZ: rawData[i].rawZ,
+                    sG: Math.sqrt(smoothX ** 2 + smoothY ** 2),
+                    jerk: rawData[i].jerk || 0,
+                    yaw: rawData[i].yaw || 0,
+                    lat: rawData[i].lat, lon: rawData[i].lon
+                });
+            }
+
+            for (let i = 1; i < processedData.length; i++) {
+                if (processedData[i].jerk === 0) {
+                    let dt = (processedData[i].time - processedData[i - 1].time) / 1000;
+                    if (dt > 0) processedData[i].jerk = Math.abs((processedData[i].sG - processedData[i - 1].sG) / dt);
+                }
+            }
+
+            const getJX = (j) => padding + (Math.min(j, jMaxX) / jMaxX) * pWidth;
+            const getJY = (g) => 350 - (Math.min(g, jMaxY) / jMaxY) * pHeight;
+
+            let safeC = 0, dangerC = 0;
+
+            bowlCtx.fillStyle = 'rgba(76, 175, 80, 0.15)'; jerkCtx.fillStyle = 'rgba(76, 175, 80, 0.2)';
+            verticalCtx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
+            pathCtx.strokeStyle = 'rgba(76, 175, 80, 0.8)';
+
+            // Draw Path & Vertical G lines
+            if (processedData.length > 0) {
+                verticalCtx.beginPath();
+                pathCtx.beginPath();
+                processedData.forEach((p, idx) => {
+                    let vx = padding + (idx / processedData.length) * pWidth;
+                    let vy = 100 - (p.rawZ * 100);
+                    if (idx === 0) verticalCtx.moveTo(vx, vy); else verticalCtx.lineTo(vx, vy);
+
+                    // Simplified Path Visualization using Heading (Yaw)
+                    // If GPS is available, we could use that, but here we use Yaw for a relative "driver view" path
+                    let px = 200 + Math.sin(p.yaw) * (idx * 0.5);
+                    let py = 200 - Math.cos(p.yaw) * (idx * 0.5);
+                    if (idx === 0) pathCtx.moveTo(px, py); else pathCtx.lineTo(px, py);
+                });
+                verticalCtx.stroke();
+                pathCtx.stroke();
+            }
+
+            processedData.forEach(p => {
+                if (p.uncomf === 0) {
+                    bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bRadiusScale), bCenter - (p.sY * bRadiusScale), 2, 0, Math.PI * 2); bowlCtx.fill();
+                    jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 2, 0, Math.PI * 2); jerkCtx.fill();
+                    safeC++;
+                }
+            });
+
+            bowlCtx.fillStyle = 'rgba(244, 67, 54, 0.7)'; jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.7)';
+            let dangerPoints = [];
+            processedData.forEach(p => {
+                if (p.uncomf === 1) {
+                    bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bRadiusScale), bCenter - (p.sY * bRadiusScale), 3, 0, Math.PI * 2); bowlCtx.fill();
+                    jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 3, 0, Math.PI * 2); jerkCtx.fill();
+                    dangerC++;
+                    dangerPoints.push(p);
+                }
+            });
+
+            if (dangerPoints.length >= 20) {
+                let p5Index = Math.floor(dangerPoints.length * 0.05);
+                let sortedAbsGx = dangerPoints.map(p => Math.abs(p.sX)).sort((a, b) => a - b);
+                let sortedAbsGy = dangerPoints.map(p => Math.abs(p.sY)).sort((a, b) => a - b);
+                let sortedJerk = dangerPoints.map(p => p.jerk).sort((a, b) => a - b);
+                let sortedG = dangerPoints.map(p => p.sG).sort((a, b) => a - b);
+
+                let threshGx = sortedAbsGx[p5Index]; let threshGy = sortedAbsGy[p5Index];
+                let threshJerk = sortedJerk[p5Index]; let threshG = sortedG[p5Index];
+
+                bowlCtx.beginPath();
+                if (typeof bowlCtx.ellipse === 'function') {
+                    bowlCtx.ellipse(bCenter, bCenter, threshGx * bRadiusScale, threshGy * bRadiusScale, 0, 0, Math.PI * 2);
+                } else {
+                    bowlCtx.arc(bCenter, bCenter, Math.max(threshGx, threshGy) * bRadiusScale, 0, Math.PI * 2);
+                }
+                bowlCtx.strokeStyle = 'rgba(255, 59, 48, 0.8)';
+                bowlCtx.lineWidth = 2; bowlCtx.setLineDash([5, 5]); bowlCtx.stroke(); bowlCtx.setLineDash([]);
+
+                jerkCtx.strokeStyle = 'rgba(255, 59, 48, 0.8)';
+                jerkCtx.lineWidth = 2; jerkCtx.setLineDash([5, 5]);
+                let tJx = getJX(threshJerk);
+                jerkCtx.beginPath(); jerkCtx.moveTo(tJx, padding); jerkCtx.lineTo(tJx, 350); jerkCtx.stroke();
+                let tGy = getJY(threshG);
+                jerkCtx.beginPath(); jerkCtx.moveTo(padding, tGy); jerkCtx.lineTo(450, tGy); jerkCtx.stroke();
+                jerkCtx.setLineDash([]);
+                jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.08)';
+                jerkCtx.fillRect(tJx, padding, 450 - tJx, tGy - padding);
+
+                thresholdDisplay.style.display = 'block';
+                thresholdValues.innerHTML = `
+                    <div>Lateral: <b>${threshGx.toFixed(2)} G</b></div>
+                    <div>Longitudinal: <b>${threshGy.toFixed(2)} G</b></div>
+                    <div>Jerk: <b>${threshJerk.toFixed(2)} G/s</b></div>
+                    <div>Combined: <b>${threshG.toFixed(2)} G</b></div>
+                `;
+            } else { thresholdDisplay.style.display = 'none'; }
+            document.getElementById('statsDisplay').innerText = `Data Points: ${processedData.length} | Comfort: ${safeC} | Uncomfort: ${dangerC}`;
+        }
+
+        filterSlider.addEventListener('input', processAndPlot);
+
+        document.getElementById('csvFileInput').addEventListener('change', (e) => {
+            const files = e.target.files; if (files.length === 0) return;
+            rawData = []; let filesRead = 0;
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const lines = ev.target.result.split('\n');
+                    if (lines.length > 0) {
+                        const h = lines[0].replace('\r', '').split(',');
+                        const iT = h.indexOf('time_ms'); const iU = h.indexOf('uncomfortable');
+                        const iX = h.indexOf('rawG_X'); const iY = h.indexOf('rawG_Y');
+                        const iZ = h.indexOf('rawG_Z');
+                        const iJX = h.indexOf('jerk_X'); const iJY = h.indexOf('jerk_Y');
+                        const iYaw = h.indexOf('yaw_rad');
+                        const iLat = h.indexOf('lat'); const iLon = h.indexOf('lon');
+
+                        if (iT > -1 && iU > -1 && iX > -1 && iY > -1) {
+                            for (let i = 1; i < lines.length; i++) {
+                                if (lines[i].trim() === '') continue;
+                                const c = lines[i].replace('\r', '').split(',');
+                                let jVal = 0;
+                                if (iJX > -1 && iJY > -1) jVal = Math.sqrt(parseFloat(c[iJX]) ** 2 + parseFloat(c[iJY]) ** 2);
+
+                                rawData.push({
+                                    time: parseInt(c[iT]),
+                                    uncomf: parseInt(c[iU]),
+                                    rawX: parseFloat(c[iX]),
+                                    rawY: parseFloat(c[iY]),
+                                    rawZ: iZ > -1 ? parseFloat(c[iZ]) : 0,
+                                    jerk: jVal,
+                                    yaw: iYaw > -1 ? parseFloat(c[iYaw]) : 0,
+                                    lat: iLat > -1 ? parseFloat(c[iLat]) : 0,
+                                    lon: iLon > -1 ? parseFloat(c[iLon]) : 0
+                                });
+                            }
+                        }
+                    }
+                    filesRead++; if (filesRead === files.length) {
+                        rawData.sort((a, b) => a.time - b.time);
+                        processAndPlot();
+                    }
+                }; reader.readAsText(file);
+            });
+        });
+        drawGrids();
+    </script>
+</body>
+
+</html>
