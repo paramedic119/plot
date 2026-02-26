@@ -202,13 +202,12 @@
 <body>
     <h1>INTEGRATED ANALYTICS</h1>
     <div class="controls">
-        <input type="file" id="csvFileInput" accept=".csv" multiple>
         <button id="syncBtn"
-            style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-left: 10px; margin-bottom: 20px;">クラウド同期</button>
+            style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-bottom: 20px;">最新データに同期</button>
         <label style="margin-left: 15px; font-size: 0.9rem; color: #cbd5e1; cursor: pointer;">
             <input type="checkbox" id="autoRefreshCheck"> リアルタイム監視 (5秒周期)
         </label>
-        <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">CSVを読み込むか、クラウドから同期してください</div>
+        <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem;">スプレッドシートからデータを取得中...</div>
 
         <div class="filter-control">
             <div style="font-weight: 600;">L-PASS FILTER STRENGTH</div>
@@ -270,14 +269,15 @@
         const thresholdValues = document.getElementById('thresholdValues');
         const syncBtn = document.getElementById('syncBtn');
         const autoRefreshCheck = document.getElementById('autoRefreshCheck');
+        const gasUrl = "https://script.google.com/macros/s/AKfycbzdMTc8l3Fet-S1-0YNZALuGPvKUXaupTW1odqJnBNrPl-zsxWX2uFhQ0hdzd0rSZBxYg/exec";
 
         let rawData = [];
         let wakeLock = null;
         let refreshInterval = null;
-
-        const bCenter = 200; const bRadiusScale = 200 / 0.5;
         const padding = 50; const pWidth = 400; const pHeight = 300;
         const jMaxX = 1.0; const jMaxY = 0.5;
+
+        const bCenter = 200; const bRadiusScale = 200 / 0.5;
 
         function drawGrids() {
             bowlCtx.clearRect(0, 0, 400, 400); bowlCtx.strokeStyle = '#1e293b'; bowlCtx.fillStyle = '#475569';
@@ -428,8 +428,7 @@
             document.getElementById('statsDisplay').innerText = `Data Points: ${processedData.length} | Comfort: ${safeC} | Uncomfort: ${dangerC}`;
         }
 
-        async function syncFromCloud(isAuto = false) {
-            const gasUrl = "https://script.google.com/macros/s/AKfycbzdMTc8l3Fet-S1-0YNZALuGPvKUXaupTW1odqJnBNrPl-zsxWX2uFhQ0hdzd0rSZBxYg/exec";
+        async function syncFromCloud(isAuto) {
             if (!isAuto) {
                 document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
                 syncBtn.disabled = true;
@@ -488,60 +487,17 @@
         }
 
         // Request wake lock on page load/user interaction
-        window.addEventListener('load', requestWakeLock);
+        window.addEventListener('load', async () => {
+            await requestWakeLock();
+            drawGrids(); // Draw initial grids
+            syncFromCloud(false); // Perform initial data sync
+        });
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 await requestWakeLock();
             }
         });
         document.addEventListener('touchstart', requestWakeLock, { once: true });
-        document.addEventListener('mousedown', requestWakeLock, { once: true });
-
-        document.getElementById('csvFileInput').addEventListener('change', (e) => {
-            const files = e.target.files; if (files.length === 0) return;
-            rawData = []; let filesRead = 0;
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const lines = ev.target.result.split('\n');
-                    if (lines.length > 0) {
-                        const h = lines[0].replace('\r', '').split(',');
-                        const iT = h.indexOf('time_ms'); const iU = h.indexOf('uncomfortable');
-                        const iX = h.indexOf('rawG_X'); const iY = h.indexOf('rawG_Y');
-                        const iZ = h.indexOf('rawG_Z');
-                        const iJX = h.indexOf('jerk_X'); const iJY = h.indexOf('jerk_Y');
-                        const iYaw = h.indexOf('yaw_rad');
-                        const iLat = h.indexOf('lat'); const iLon = h.indexOf('lon');
-
-                        if (iT > -1 && iU > -1 && iX > -1 && iY > -1) {
-                            for (let i = 1; i < lines.length; i++) {
-                                if (lines[i].trim() === '') continue;
-                                const c = lines[i].replace('\r', '').split(',');
-                                let jVal = 0;
-                                if (iJX > -1 && iJY > -1) jVal = Math.sqrt(parseFloat(c[iJX]) ** 2 + parseFloat(c[iJY]) ** 2);
-
-                                rawData.push({
-                                    time: parseInt(c[iT]),
-                                    uncomf: parseInt(c[iU]),
-                                    rawX: parseFloat(c[iX]),
-                                    rawY: parseFloat(c[iY]),
-                                    rawZ: iZ > -1 ? parseFloat(c[iZ]) : 0,
-                                    jerk: jVal,
-                                    yaw: iYaw > -1 ? parseFloat(c[iYaw]) : 0,
-                                    lat: iLat > -1 ? parseFloat(c[iLat]) : 0,
-                                    lon: iLon > -1 ? parseFloat(c[iLon]) : 0
-                                });
-                            }
-                        }
-                    }
-                    filesRead++; if (filesRead === files.length) {
-                        rawData.sort((a, b) => a.time - b.time);
-                        processAndPlot();
-                    }
-                }; reader.readAsText(file);
-            });
-        });
-        drawGrids();
     </script>
 </body>
 
