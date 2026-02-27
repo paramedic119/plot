@@ -128,127 +128,164 @@
     <div class="controls">
         <button onclick="fetchData()">最新データに更新</button>
         <div style="font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;">Jerk Intensity (Heatmap)</div>
+
+        <label
+            style="display: flex; align-items: center; margin-bottom: 15px; font-size: 0.85rem; cursor: pointer; color: #f8fafc; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <input type="checkbox" id="filterRed" onchange="applyFilter()"
+                style="margin-right: 8px; width: 16px; height: 16px; accent-color: #ef4444;">
+            急操作（赤）のみ抽出表示
+        </label>
+
         <div class="legend">
             <div class="legend-item">
-                <div class="dot" style="background: #10b981;"></div> Smooth (< 0.2 G/s)</div>
-                    <div class="legend-item">
-                        <div class="dot" style="background: #fbbf24;"></div> Moderate
-                    </div>
-                    <div class="legend-item">
-                        <div class="dot" style="background: #ef4444;"></div> Impact (> 0.5 G/s)
-                    </div>
-                    <div class="legend-item">
-                        <div class="dot" style="background: #a855f7;"></div> Uncomfortable Marker
-                    </div>
+                <div class="dot" style="background: #10b981;"></div> Smooth (&lt; 0.2 G/s)
+            </div>
+            <div class="legend-item">
+                <div class="dot" style="background: #fbbf24;"></div> Moderate
+            </div>
+            <div class="legend-item">
+                <div class="dot" style="background: #ef4444;"></div> Impact (&gt; 0.5 G/s)
+            </div>
+            <div class="legend-item">
+                <div class="dot" style="background: #a855f7;"></div> Uncomfortable Marker
             </div>
         </div>
+    </div>
 
-        <script>
-            const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
-            const API_KEY = "AIzaSyC6sClX278FbJ-mA-OoSU9841M68Ies8PE";
-            let map;
-            let markers = [];
-            let polyline;
+    <script>
+        const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
+        const API_KEY = "AIzaSyC6sClX278FbJ-mA-OoSU9841M68Ies8PE";
+        let map;
+        let markers = [];
+        let polyline;
+        let currentData = [];
 
-            async function initMap() {
-                const script = document.createElement('script');
-                script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=setupMap`;
-                script.async = true;
-                document.head.appendChild(script);
+        function applyFilter() {
+            if (currentData && currentData.length > 0) {
+                plotOnMap(currentData);
             }
+        }
 
-            function setupMap() {
-                const darkStyles = [
-                    { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
-                    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
-                    { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
-                    { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
-                    { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
-                    { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#263c3f" }] },
-                    { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#6b9a76" }] },
-                    { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
-                    { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#212a37" }] },
-                    { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#9ca5b3" }] },
-                    { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#746855" }] },
-                    { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1f2835" }] },
-                    { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#f3d19c" }] },
-                    { "featureType": "transit", "elementType": "geometry", "stylers": [{ "color": "#2f3948" }] },
-                    { "featureType": "transit.station", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
-                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] },
-                    { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#515c6d" }] },
-                    { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
-                ];
+        async function initMap() {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=setupMap`;
+            script.async = true;
+            document.head.appendChild(script);
+        }
 
-                map = new google.maps.Map(document.getElementById("map"), {
-                    zoom: 15,
-                    center: { lat: 35.6812, lng: 139.7671 },
-                    styles: darkStyles,
-                    mapTypeControl: false,
-                    streetViewControl: true
-                });
-                fetchData();
-            }
+        function setupMap() {
+            const darkStyles = [
+                { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
+                { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
+                { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
+                { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+                { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+                { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#263c3f" }] },
+                { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#6b9a76" }] },
+                { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
+                { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#212a37" }] },
+                { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#9ca5b3" }] },
+                { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#746855" }] },
+                { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1f2835" }] },
+                { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#f3d19c" }] },
+                { "featureType": "transit", "elementType": "geometry", "stylers": [{ "color": "#2f3948" }] },
+                { "featureType": "transit.station", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+                { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] },
+                { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#515c6d" }] },
+                { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
+            ];
 
-            async function fetchData() {
-                document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
-                try {
-                    // Add timestamp to bypass cache
-                    const response = await fetch(gasUrl + "?type=map&t=" + Date.now());
-                    if (!response.ok) throw new Error("Server response was " + response.status);
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: { lat: 35.6812, lng: 139.7671 },
+                styles: darkStyles,
+                mapTypeControl: false,
+                streetViewControl: true
+            });
+            fetchData();
+        }
 
-                    const data = await response.json();
-                    if (data && data.length > 0) {
-                        plotOnMap(data);
-                        document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
-                    } else {
-                        document.getElementById('status').innerText = "⚠️ データが見つかりませんでした (配信なし)";
-                        if (polyline) polyline.setMap(null);
-                        markers.forEach(m => m.setMap(null));
-                    }
-                } catch (e) {
-                    console.error(e);
-                    document.getElementById('status').innerText = "❌ 同期失敗: " + e.message;
+        async function fetchData() {
+            document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
+            try {
+                // Add timestamp to bypass cache
+                const response = await fetch(gasUrl + "?type=map&t=" + Date.now());
+                if (!response.ok) throw new Error("Server response was " + response.status);
+
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    currentData = data;
+                    applyFilter();
+                    document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
+                } else {
+                    document.getElementById('status').innerText = "⚠️ データが見つかりませんでした (配信なし)";
+                    if (polyline) polyline.setMap(null);
+                    markers.forEach(m => m.setMap(null));
                 }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('status').innerText = "❌ 同期失敗: " + e.message;
             }
+        }
 
-            function plotOnMap(data) {
-                if (!map) return;
-                if (polyline) polyline.setMap(null);
-                markers.forEach(m => m.setMap(null));
-                markers = [];
+        function plotOnMap(data) {
+            if (!map) return;
+            if (polyline) polyline.setMap(null);
+            markers.forEach(m => m.setMap(null));
+            markers = [];
 
-                const path = [];
-                let bounds = new google.maps.LatLngBounds();
+            const path = [];
+            let bounds = new google.maps.LatLngBounds();
 
-                data.forEach((row) => {
-                    const lat = parseFloat(row.lat);
-                    const lon = parseFloat(row.lon);
-                    if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
+            data.forEach((row) => {
+                const lat = parseFloat(row.lat);
+                const lon = parseFloat(row.lon);
+                if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
 
-                    const pos = { lat, lng: lon };
-                    path.push(pos);
-                    bounds.extend(pos);
+                const pos = { lat, lng: lon };
+                path.push(pos);
+                bounds.extend(pos);
 
-                    const jerk = Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2);
-                    const uncomf = parseInt(row.uncomfortable);
+                const jerk = Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2);
+                const uncomf = parseInt(row.uncomfortable);
+                const showOnlyRed = document.getElementById('filterRed').checked;
 
-                    if (uncomf === 1 || jerk > 0.2) {
-                        const color = uncomf === 1 ? '#a855f7' : (jerk > 0.5 ? '#ef4444' : '#fbbf24');
-                        const marker = new google.maps.Marker({
-                            position: pos,
-                            map: map,
-                            icon: {
-                                path: google.maps.SymbolPath.CIRCLE,
-                                fillColor: color,
-                                fillOpacity: 0.9,
-                                strokeWeight: 1,
-                                strokeColor: '#fff',
-                                scale: uncomf === 1 ? 8 : 5
-                            }
-                        });
+                let shouldPlot = false;
+                let color = '';
 
-                        const infoWindow = new google.maps.InfoWindow({
-                            content: `
+                // 1. Purple (Uncomfortable) gets highest priority
+                if (uncomf === 1) {
+                    shouldPlot = true;
+                    color = '#a855f7';
+                }
+                // 2. Red (Impact)
+                else if (jerk > 0.5) {
+                    shouldPlot = true;
+                    color = '#ef4444';
+                }
+                // 3. Yellow (Moderate) - skip if "Show Only Red" is checked
+                else if (!showOnlyRed && jerk > 0.2) {
+                    shouldPlot = true;
+                    color = '#fbbf24';
+                }
+
+                if (shouldPlot) {
+                    const marker = new google.maps.Marker({
+                        position: pos,
+                        map: map,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            fillColor: color,
+                            fillOpacity: 0.9,
+                            strokeWeight: 1,
+                            strokeColor: '#fff',
+                            scale: uncomf === 1 ? 8 : (color === '#ef4444' ? 6 : 4)
+                        },
+                        zIndex: uncomf === 1 ? 3 : (color === '#ef4444' ? 2 : 1)
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
                             <div style="color:black; font-size:12px; font-family:sans-serif;">
                                 <b style="font-size:14px;">Driving Detail</b><hr>
                                 <b>Jerk:</b> ${jerk.toFixed(3)} G/s<br>
@@ -256,29 +293,29 @@
                                 <b>Uncomfort:</b> ${uncomf === 1 ? '<span style="color:red">YES</span>' : 'NO'}
                             </div>
                         `
-                        });
+                    });
 
-                        marker.addListener("click", () => {
-                            infoWindow.open(map, marker);
-                        });
-                        markers.push(marker);
-                    }
-                });
+                    marker.addListener("click", () => {
+                        infoWindow.open(map, marker);
+                    });
+                    markers.push(marker);
+                }
+            });
 
-                polyline = new google.maps.Polyline({
-                    path: path,
-                    geodesic: true,
-                    strokeColor: "#10b981",
-                    strokeOpacity: 0.7,
-                    strokeWeight: 4,
-                    map: map
-                });
+            polyline = new google.maps.Polyline({
+                path: path,
+                geodesic: true,
+                strokeColor: "#10b981",
+                strokeOpacity: 0.7,
+                strokeWeight: 4,
+                map: map
+            });
 
-                if (path.length > 0) map.fitBounds(bounds);
-            }
+            if (path.length > 0) map.fitBounds(bounds);
+        }
 
-            window.onload = initMap;
-        </script>
+        window.onload = initMap;
+    </script>
 </body>
 
 </html>
