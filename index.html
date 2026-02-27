@@ -309,6 +309,25 @@
                         不快時のZ軸衝撃がこの値を超えると「路面起因（橙）」、下回ると「運転操作（赤）」と分類されます。
                     </div>
                 </div>
+
+                <!-- 反応遅延補正（ルックバック）スライダー -->
+                <div
+                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(76, 175, 80, 0.3); margin-top: 15px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-weight: bold; color: #4ade80; margin-bottom: 8px;">
+                        <span>反応遅延の補正 (過去への遡り)</span>
+                        <span id="lookbackValue">1.0 秒</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span style="font-size: 0.7rem; color: #94a3b8;">0秒<br>(直上のみ)</span>
+                        <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="1.0"
+                            style="accent-color: #4ade80;">
+                        <span style="font-size: 0.7rem; color: #94a3b8;">3秒<br>(長く遡る)</span>
+                    </div>
+                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
+                        ボタンが押された瞬間から、設定した秒数だけ過去に遡って、最大のZ軸衝撃を探します。
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -381,6 +400,8 @@
         const gBowlMaxSelect = document.getElementById('gBowlMaxSelect');
         const zThresholdSlider = document.getElementById('zThresholdSlider');
         const zThresholdValue = document.getElementById('zThresholdValue');
+        const lookbackSlider = document.getElementById('lookbackSlider');
+        const lookbackValue = document.getElementById('lookbackValue');
         const showSafeCheck = document.getElementById('showSafeCheck');
         const showDriverCheck = document.getElementById('showDriverCheck');
         const showRoadCheck = document.getElementById('showRoadCheck');
@@ -516,6 +537,8 @@
             const useRoadFilter = roadFilterCheck.checked;
             const zThresh = parseFloat(zThresholdSlider.value);
             zThresholdValue.innerText = zThresh.toFixed(2) + " G/s";
+            const lookbackTime = parseFloat(lookbackSlider.value);
+            lookbackValue.innerText = lookbackTime.toFixed(1) + " 秒";
 
             const showSafe = showSafeCheck.checked;
             const showDriver = showDriverCheck.checked;
@@ -555,8 +578,20 @@
             processedData.forEach((p, idx) => {
                 if (p.uncomf === 1) {
                     let isRoad = false;
+                    let evalZJerk = Math.abs(p.jerkZ);
+
+                    // ルックバック：設定された秒数（ミリ秒）だけ過去に遡って最大のZ衝撃を探す
+                    if (useRoadFilter && lookbackTime > 0) {
+                        let lookbackMs = lookbackTime * 1000;
+                        for (let j = idx; j >= 0; j--) {
+                            if (p.time - processedData[j].time > lookbackMs) break;
+                            let absZ = Math.abs(processedData[j].jerkZ);
+                            if (absZ > evalZJerk) evalZJerk = absZ;
+                        }
+                    }
+
                     // 路面フィルターがON、かつZ軸の衝撃が設定閾値を超えている場合
-                    if (useRoadFilter && Math.abs(p.jerkZ) > zThresh) {
+                    if (useRoadFilter && evalZJerk > zThresh) {
                         isRoad = true;
                         roadC++;
                     } else {
@@ -578,7 +613,7 @@
 
                         // Scatter Plot Mapping
                         let drvFactor = p.sG * 2.0 + p.jerk;
-                        let roadFactor = Math.abs(p.jerkZ);
+                        let roadFactor = evalZJerk;
                         scatterCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 0.8)' : 'rgba(244, 67, 54, 0.8)';
                         scatterCtx.beginPath();
                         scatterCtx.arc(getScX(drvFactor), getScY(roadFactor), 4, 0, Math.PI * 2);
@@ -690,6 +725,7 @@
         roadFilterCheck.addEventListener('change', processAndPlot);
         gBowlMaxSelect.addEventListener('change', processAndPlot);
         zThresholdSlider.addEventListener('input', processAndPlot);
+        lookbackSlider.addEventListener('input', processAndPlot);
         showSafeCheck.addEventListener('change', processAndPlot);
         showDriverCheck.addEventListener('change', processAndPlot);
         showRoadCheck.addEventListener('change', processAndPlot);
