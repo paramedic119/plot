@@ -297,11 +297,11 @@
                     <div
                         style="display: flex; justify-content: space-between; font-weight: bold; color: var(--road); margin-bottom: 8px;">
                         <span>路面起因の判定感度 (Z軸衝撃閾値)</span>
-                        <span id="zThresholdValue">0.50 G/s</span>
+                        <span id="zThresholdValue">0.80 G/s</span>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <span style="font-size: 0.7rem; color: #94a3b8;">敏感<br>(路面になりやすい)</span>
-                        <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.5"
+                        <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.8"
                             style="accent-color: var(--road);">
                         <span style="font-size: 0.7rem; color: #94a3b8;">鈍感<br>(運転になりやすい)</span>
                     </div>
@@ -316,11 +316,11 @@
                     <div
                         style="display: flex; justify-content: space-between; font-weight: bold; color: #4ade80; margin-bottom: 8px;">
                         <span>反応遅延の補正 (過去への遡り)</span>
-                        <span id="lookbackValue">1.0 秒</span>
+                        <span id="lookbackValue">0.5 秒</span>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <span style="font-size: 0.7rem; color: #94a3b8;">0秒<br>(直上のみ)</span>
-                        <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="1.0"
+                        <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="0.5"
                             style="accent-color: #4ade80;">
                         <span style="font-size: 0.7rem; color: #94a3b8;">3秒<br>(長く遡る)</span>
                     </div>
