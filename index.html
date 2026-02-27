@@ -290,6 +290,25 @@
                         <option value="1.00">1.00 G</option>
                     </select>
                 </div>
+
+                <!-- 路面感度（Z軸判定）調整スライダー -->
+                <div
+                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(251, 140, 0, 0.3);">
+                    <div
+                        style="display: flex; justify-content: space-between; font-weight: bold; color: var(--road); margin-bottom: 8px;">
+                        <span>路面起因の判定感度 (Z軸衝撃閾値)</span>
+                        <span id="zThresholdValue">0.50 G/s</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span style="font-size: 0.7rem; color: #94a3b8;">敏感<br>(路面になりやすい)</span>
+                        <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.5"
+                            style="accent-color: var(--road);">
+                        <span style="font-size: 0.7rem; color: #94a3b8;">鈍感<br>(運転になりやすい)</span>
+                    </div>
+                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
+                        不快時のZ軸衝撃がこの値を超えると「路面起因（橙）」、下回ると「運転操作（赤）」と分類されます。
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -360,6 +379,8 @@
         const filterValueDisplay = document.getElementById('filterValueDisplay');
         const roadFilterCheck = document.getElementById('roadFilterCheck');
         const gBowlMaxSelect = document.getElementById('gBowlMaxSelect');
+        const zThresholdSlider = document.getElementById('zThresholdSlider');
+        const zThresholdValue = document.getElementById('zThresholdValue');
         const showSafeCheck = document.getElementById('showSafeCheck');
         const showDriverCheck = document.getElementById('showDriverCheck');
         const showRoadCheck = document.getElementById('showRoadCheck');
@@ -493,7 +514,8 @@
 
             let safeC = 0, dangerC = 0, roadC = 0;
             const useRoadFilter = roadFilterCheck.checked;
-            const Z_JERK_THRESHOLD = 0.5; // 路面起因とみなすZ軸の衝撃限界(G/s)
+            const zThresh = parseFloat(zThresholdSlider.value);
+            zThresholdValue.innerText = zThresh.toFixed(2) + " G/s";
 
             const showSafe = showSafeCheck.checked;
             const showDriver = showDriverCheck.checked;
@@ -533,8 +555,8 @@
             processedData.forEach((p, idx) => {
                 if (p.uncomf === 1) {
                     let isRoad = false;
-                    // 路面フィルターがON、かつZ軸の衝撃が大きい場合
-                    if (useRoadFilter && Math.abs(p.jerkZ) > Z_JERK_THRESHOLD) {
+                    // 路面フィルターがON、かつZ軸の衝撃が設定閾値を超えている場合
+                    if (useRoadFilter && Math.abs(p.jerkZ) > zThresh) {
                         isRoad = true;
                         roadC++;
                     } else {
@@ -667,6 +689,7 @@
         filterSlider.addEventListener('input', processAndPlot);
         roadFilterCheck.addEventListener('change', processAndPlot);
         gBowlMaxSelect.addEventListener('change', processAndPlot);
+        zThresholdSlider.addEventListener('input', processAndPlot);
         showSafeCheck.addEventListener('change', processAndPlot);
         showDriverCheck.addEventListener('change', processAndPlot);
         showRoadCheck.addEventListener('change', processAndPlot);
