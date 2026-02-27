@@ -129,13 +129,12 @@
             padding-top: 12px;
         }
 
-        .charts-wrapper {
-            display: flex;
-            flex-wrap: wrap;
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 24px;
-            justify-content: center;
             width: 100%;
-            max-width: 1200px;
+            max-width: 1300px;
         }
 
         .chart-container {
@@ -202,6 +201,13 @@
             vertical-align: middle;
         }
 
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+        }
+
         @media (max-width: 600px) {
             body {
                 padding: 10px;
@@ -215,10 +221,6 @@
             .btn-group a {
                 width: 100% !important;
                 text-align: center;
-            }
-
-            .charts-wrapper {
-                gap: 12px;
             }
 
             .chart-container {
@@ -374,9 +376,9 @@
         </div>
     </div>
 
-    <div class="charts-wrapper" id="chartsArea">
+    <div class="charts-grid" id="chartsArea">
         <!-- 散布図 (NEW) -->
-        <div class="chart-container" style="width: 100%; max-width: 924px; border: 1px solid var(--primary);">
+        <div class="chart-container" style="grid-column: 1 / -1; border: 1px solid var(--primary);">
             <div class="chart-title" style="color: var(--primary);">Road Factor vs Driver Factor (不快要因の分離散布図)</div>
             <canvas id="scatterCanvas" width="800" height="350"></canvas>
             <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 10px; width: 100%; text-align: center;">
@@ -393,13 +395,9 @@
             <div class="chart-title">Jerk vs Composite G (Impact)</div>
             <canvas id="jerkCanvas" width="500" height="400"></canvas>
         </div>
-        <div class="chart-container">
+        <div class="chart-container" style="grid-column: 1 / -1;">
             <div class="chart-title">Vertical G (Z-Axis) Timeline</div>
-            <canvas id="verticalCanvas" width="500" height="200"></canvas>
-        </div>
-        <div class="chart-container">
-            <div class="chart-title">Heading (Yaw) & GPS Path (Relative)</div>
-            <canvas id="pathCanvas" width="400" height="400"></canvas>
+            <canvas id="verticalCanvas" width="1000" height="200"></canvas>
         </div>
     </div>
 
@@ -407,7 +405,6 @@
         const bowlCtx = document.getElementById('bowlCanvas').getContext('2d');
         const jerkCtx = document.getElementById('jerkCanvas').getContext('2d');
         const verticalCtx = document.getElementById('verticalCanvas').getContext('2d');
-        const pathCtx = document.getElementById('pathCanvas').getContext('2d');
         const scatterCtx = document.getElementById('scatterCanvas').getContext('2d');
 
         const filterSlider = document.getElementById('filterSlider');
@@ -436,6 +433,7 @@
 
         const padding = 50; const pWidth = 400; const pHeight = 300;
         const sPadding = 60; const sWidth = 800 - sPadding * 2; const sHeight = 350 - sPadding * 2;
+        const vWidth = 900; // Total vertical timeline width
         const jMaxX = 1.0; const jMaxY = 0.5;
         const bCenter = 200;
 
@@ -473,8 +471,8 @@
             }
 
             // Vertical 
-            verticalCtx.clearRect(0, 0, 500, 200); verticalCtx.strokeStyle = '#1e293b';
-            verticalCtx.beginPath(); verticalCtx.moveTo(padding, 100); verticalCtx.lineTo(450, 100); verticalCtx.stroke();
+            verticalCtx.clearRect(0, 0, 1000, 200); verticalCtx.strokeStyle = '#1e293b';
+            verticalCtx.beginPath(); verticalCtx.moveTo(padding, 100); verticalCtx.lineTo(padding + vWidth, 100); verticalCtx.stroke();
             verticalCtx.fillStyle = '#475569'; verticalCtx.font = '10px sans-serif';
             verticalCtx.fillText('0G', padding - 5, 100);
             verticalCtx.fillText('+0.5G', padding - 5, 50);
@@ -497,11 +495,6 @@
             scatterCtx.textAlign = 'center';
             scatterCtx.fillText('路面要因 [ Z軸 Jerk衝撃 ]', 0, 0);
             scatterCtx.restore();
-
-            // Path Grid
-            pathCtx.clearRect(0, 0, 400, 400); pathCtx.strokeStyle = '#1e293b';
-            pathCtx.beginPath(); pathCtx.moveTo(0, 200); pathCtx.lineTo(400, 200);
-            pathCtx.moveTo(200, 0); pathCtx.lineTo(200, 400); pathCtx.stroke();
         }
 
         function processAndPlot() {
@@ -574,20 +567,15 @@
             const showDriver = showDriverCheck.checked;
             const showRoad = showRoadCheck.checked;
 
-            // Draw Lines for Vertical G and Path
+            // Draw Lines for Vertical G
             verticalCtx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
-            pathCtx.strokeStyle = 'rgba(76, 175, 80, 0.8)';
-            verticalCtx.beginPath(); pathCtx.beginPath();
+            verticalCtx.beginPath();
             processedData.forEach((p, idx) => {
-                let vx = padding + (idx / processedData.length) * pWidth;
+                let vx = padding + (idx / processedData.length) * vWidth;
                 let vy = 100 - (p.rawZ * 100);
                 if (idx === 0) verticalCtx.moveTo(vx, vy); else verticalCtx.lineTo(vx, vy);
-
-                let px = 200 + Math.sin(p.yaw) * (idx * 0.5);
-                let py = 200 - Math.cos(p.yaw) * (idx * 0.5);
-                if (idx === 0) pathCtx.moveTo(px, py); else pathCtx.lineTo(px, py);
             });
-            verticalCtx.stroke(); pathCtx.stroke();
+            verticalCtx.stroke();
 
             // Safe Points
             if (showSafe) {
@@ -650,7 +638,7 @@
                         scatterCtx.fill();
 
                         // Overlay on Vertical Canvas
-                        let vx = padding + (idx / processedData.length) * pWidth;
+                        let vx = padding + (idx / processedData.length) * vWidth;
                         verticalCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 1)' : 'rgba(244, 67, 54, 1)';
                         verticalCtx.beginPath();
                         verticalCtx.arc(vx, 100 - (p.rawZ * 100), 4, 0, Math.PI * 2);
