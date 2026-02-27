@@ -329,6 +329,22 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 走行セッション選択 -->
+            <div class="filter-control"
+                style="background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); margin-top: 15px;">
+                <div style="font-weight: 600; margin-bottom: 12px; color: #81c784;">🚗 走行データ（同一ドライバー/回）の選択</div>
+                <div
+                    style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                    <select id="runSelect"
+                        style="width: 100%; background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 8px; font-weight: bold; font-size: 0.9rem;">
+                        <option value="all">すべての走行データ (全体を表示)</option>
+                    </select>
+                </div>
+                <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
+                    5分以上のデータ空白を元に自動的に走行を区切っています。特定の運転者・回の分析を行う場合に選択してください。
+                </div>
+            </div>
         </div>
 
         <div id="thresholdDisplay">
@@ -402,6 +418,7 @@
         const zThresholdValue = document.getElementById('zThresholdValue');
         const lookbackSlider = document.getElementById('lookbackSlider');
         const lookbackValue = document.getElementById('lookbackValue');
+        const runSelect = document.getElementById('runSelect');
         const showSafeCheck = document.getElementById('showSafeCheck');
         const showDriverCheck = document.getElementById('showDriverCheck');
         const showRoadCheck = document.getElementById('showRoadCheck');
@@ -412,7 +429,8 @@
 
         const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
 
-        let rawData = [];
+        let rawData = []; // All data fetched
+        let currentTrips = []; // List of identified trips
         let wakeLock = null;
         let refreshInterval = null;
 
@@ -489,6 +507,18 @@
         function processAndPlot() {
             if (rawData.length === 0) { drawGrids(); return; }
 
+            // Filter data based on selected trip
+            const selectedTripId = runSelect.value;
+            let displayData = rawData;
+            if (selectedTripId !== 'all') {
+                const trip = currentTrips.find(t => t.id === selectedTripId);
+                if (trip) {
+                    displayData = rawData.slice(trip.startIndex, trip.endIndex + 1);
+                }
+            }
+
+            if (displayData.length === 0) { drawGrids(); return; }
+
             const windowSize = parseInt(filterSlider.value);
             filterValueDisplay.innerText = `現在の設定: 過去 ${windowSize} サンプル (約 ${(windowSize * 0.05).toFixed(2)} 秒)`;
 
@@ -497,23 +527,23 @@
             drawGrids();
 
             let processedData = [];
-            for (let i = 0; i < rawData.length; i++) {
+            for (let i = 0; i < displayData.length; i++) {
                 let sumX = 0; let sumY = 0; let count = 0;
                 for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
-                    sumX += rawData[j].rawX; sumY += rawData[j].rawY; count++;
+                    sumX += displayData[j].rawX; sumY += displayData[j].rawY; count++;
                 }
 
                 let smoothX = sumX / count; let smoothY = sumY / count;
                 processedData.push({
-                    time: rawData[i].time,
-                    uncomf: rawData[i].uncomf,
+                    time: displayData[i].time,
+                    uncomf: displayData[i].uncomf,
                     sX: smoothX, sY: smoothY,
-                    rawZ: rawData[i].rawZ,
-                    jerkZ: rawData[i].jerkZ,
+                    rawZ: displayData[i].rawZ,
+                    jerkZ: displayData[i].jerkZ,
                     sG: Math.sqrt(smoothX ** 2 + smoothY ** 2),
-                    jerk: rawData[i].jerk || 0,
-                    yaw: rawData[i].yaw || 0,
-                    lat: rawData[i].lat, lon: rawData[i].lon
+                    jerk: displayData[i].jerk || 0,
+                    yaw: displayData[i].yaw || 0,
+                    lat: displayData[i].lat, lon: displayData[i].lon
                 });
             }
 
@@ -691,11 +721,59 @@
                     rawData = data.map(row => ({
                         time: parseInt(row.time_ms), uncomf: parseInt(row.uncomfortable),
                         rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
-                        jerkZ: parseFloat(row.jerk_Z || 0), // Fetching Z jerk for road isolation
+                        jerkZ: parseFloat(row.jerk_Z || 0),
                         jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
-                        yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0)
+                        yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
+                        age: row.age || 0, exp: row.exp || 0
                     }));
                     rawData.sort((a, b) => a.time - b.time);
+
+                    // Group into Trips based on time gaps (> 5 minutes)
+                    const GAP_THRESHOLD_MS = 300000;
+                    currentTrips = [];
+                    if (rawData.length > 0) {
+                        let tripStartIdx = 0;
+                        for (let i = 1; i < rawData.length; i++) {
+                            if (rawData[i].time - rawData[i - 1].time > GAP_THRESHOLD_MS) {
+                                // Close current trip
+                                currentTrips.push({
+                                    id: `trip_${tripStartIdx}`,
+                                    startIndex: tripStartIdx,
+                                    endIndex: i - 1,
+                                    startTime: rawData[tripStartIdx].time,
+                                    age: rawData[tripStartIdx].age,
+                                    exp: rawData[tripStartIdx].exp
+                                });
+                                tripStartIdx = i;
+                            }
+                        }
+                        // Add last trip
+                        currentTrips.push({
+                            id: `trip_${tripStartIdx}`,
+                            startIndex: tripStartIdx,
+                            endIndex: rawData.length - 1,
+                            startTime: rawData[tripStartIdx].time,
+                            age: rawData[tripStartIdx].age,
+                            exp: rawData[tripStartIdx].exp
+                        });
+                    }
+
+                    // Update Selector UI
+                    const previousSelection = runSelect.value;
+                    runSelect.innerHTML = '<option value="all">すべての走行データ (全体を表示)</option>';
+                    currentTrips.forEach((t, i) => {
+                        const date = new Date(t.startTime);
+                        const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+                        const label = `${i + 1}：${t.age}歳/歴${t.exp}年 (${timeStr}〜)`;
+                        const opt = document.createElement("option");
+                        opt.value = t.id;
+                        opt.textContent = label;
+                        runSelect.appendChild(opt);
+                    });
+                    if ([...runSelect.options].some(o => o.value === previousSelection)) {
+                        runSelect.value = previousSelection;
+                    }
+
                     processAndPlot();
                     if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
                 } else {
@@ -726,6 +804,7 @@
         gBowlMaxSelect.addEventListener('change', processAndPlot);
         zThresholdSlider.addEventListener('input', processAndPlot);
         lookbackSlider.addEventListener('input', processAndPlot);
+        runSelect.addEventListener('change', processAndPlot);
         showSafeCheck.addEventListener('change', processAndPlot);
         showDriverCheck.addEventListener('change', processAndPlot);
         showRoadCheck.addEventListener('change', processAndPlot);
