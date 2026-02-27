@@ -304,9 +304,18 @@
         </div>
 
         <div class="legend">
-            <div><span class="dot" style="background: rgba(76, 175, 80, 0.5);"></span>快適/安全</div>
-            <div><span class="dot" style="background: rgba(244, 67, 54, 0.8);"></span>操作起因の不快 (XY軸)</div>
-            <div><span class="dot" style="background: var(--road);"></span>路面起因の不快 (Z軸)</div>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="showSafeCheck" checked>
+                <span class="dot" style="background: rgba(76, 175, 80, 0.5);"></span>快適/安全
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="showDriverCheck" checked>
+                <span class="dot" style="background: rgba(244, 67, 54, 0.8);"></span>操作起因 (赤)
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="showRoadCheck" checked>
+                <span class="dot" style="background: var(--road);"></span>路面起因 (橙)
+            </label>
             <div><span class="line-legend"></span>自動算出閾値ライン</div>
         </div>
     </div>
@@ -351,6 +360,9 @@
         const filterValueDisplay = document.getElementById('filterValueDisplay');
         const roadFilterCheck = document.getElementById('roadFilterCheck');
         const gBowlMaxSelect = document.getElementById('gBowlMaxSelect');
+        const showSafeCheck = document.getElementById('showSafeCheck');
+        const showDriverCheck = document.getElementById('showDriverCheck');
+        const showRoadCheck = document.getElementById('showRoadCheck');
         const thresholdDisplay = document.getElementById('thresholdDisplay');
         const thresholdValues = document.getElementById('thresholdValues');
         const syncBtn = document.getElementById('syncBtn');
@@ -483,6 +495,10 @@
             const useRoadFilter = roadFilterCheck.checked;
             const Z_JERK_THRESHOLD = 0.5; // 路面起因とみなすZ軸の衝撃限界(G/s)
 
+            const showSafe = showSafeCheck.checked;
+            const showDriver = showDriverCheck.checked;
+            const showRoad = showRoadCheck.checked;
+
             // Draw Lines for Vertical G and Path
             verticalCtx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
             pathCtx.strokeStyle = 'rgba(76, 175, 80, 0.8)';
@@ -499,15 +515,17 @@
             verticalCtx.stroke(); pathCtx.stroke();
 
             // Safe Points
-            bowlCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
-            jerkCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
-            processedData.forEach(p => {
-                if (p.uncomf === 0) {
-                    bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 2, 0, Math.PI * 2); bowlCtx.fill();
-                    jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 2, 0, Math.PI * 2); jerkCtx.fill();
-                    safeC++;
-                }
-            });
+            if (showSafe) {
+                bowlCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
+                jerkCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
+                processedData.forEach(p => {
+                    if (p.uncomf === 0) {
+                        bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 2, 0, Math.PI * 2); bowlCtx.fill();
+                        jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 2, 0, Math.PI * 2); jerkCtx.fill();
+                    }
+                });
+            }
+            processedData.forEach(p => { if (p.uncomf === 0) safeC++; });
 
             // Danger Points mapping
             let driverDangerPoints = [];
@@ -525,33 +543,32 @@
                     }
 
                     // Bowl & Jerk Plots
-                    if (isRoad) {
-                        bowlCtx.fillStyle = 'rgba(251, 140, 0, 0.8)'; // Orange
-                        jerkCtx.fillStyle = 'rgba(251, 140, 0, 0.8)';
-                    } else {
-                        bowlCtx.fillStyle = 'rgba(244, 67, 54, 0.8)'; // Red
-                        jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.8)';
+                    if ((isRoad && showRoad) || (!isRoad && showDriver)) {
+                        if (isRoad) {
+                            bowlCtx.fillStyle = 'rgba(251, 140, 0, 0.8)'; // Orange
+                            jerkCtx.fillStyle = 'rgba(251, 140, 0, 0.8)';
+                        } else {
+                            bowlCtx.fillStyle = 'rgba(244, 67, 54, 0.8)'; // Red
+                            jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.8)';
+                        }
+                        bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 3, 0, Math.PI * 2); bowlCtx.fill();
+                        jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 3, 0, Math.PI * 2); jerkCtx.fill();
+
+                        // Scatter Plot Mapping
+                        let drvFactor = p.sG * 2.0 + p.jerk;
+                        let roadFactor = Math.abs(p.jerkZ);
+                        scatterCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 0.8)' : 'rgba(244, 67, 54, 0.8)';
+                        scatterCtx.beginPath();
+                        scatterCtx.arc(getScX(drvFactor), getScY(roadFactor), 4, 0, Math.PI * 2);
+                        scatterCtx.fill();
+
+                        // Overlay on Vertical Canvas
+                        let vx = padding + (idx / processedData.length) * pWidth;
+                        verticalCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 1)' : 'rgba(244, 67, 54, 1)';
+                        verticalCtx.beginPath();
+                        verticalCtx.arc(vx, 100 - (p.rawZ * 100), 4, 0, Math.PI * 2);
+                        verticalCtx.fill();
                     }
-                    bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 3, 0, Math.PI * 2); bowlCtx.fill();
-                    jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 3, 0, Math.PI * 2); jerkCtx.fill();
-
-                    // Scatter Plot Mapping (Only for uncomfortable)
-                    // X = Driver Factor (Composite G * 2 + Jerk)
-                    // Y = Road Factor (Z Jerk absolute)
-                    let drvFactor = p.sG * 2.0 + p.jerk;
-                    let roadFactor = Math.abs(p.jerkZ);
-
-                    scatterCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 0.8)' : 'rgba(244, 67, 54, 0.8)';
-                    scatterCtx.beginPath();
-                    scatterCtx.arc(getScX(drvFactor), getScY(roadFactor), 4, 0, Math.PI * 2);
-                    scatterCtx.fill();
-
-                    // Overlay on Vertical Canvas
-                    let vx = padding + (idx / processedData.length) * pWidth;
-                    verticalCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 1)' : 'rgba(244, 67, 54, 1)';
-                    verticalCtx.beginPath();
-                    verticalCtx.arc(vx, 100 - (p.rawZ * 100), 4, 0, Math.PI * 2);
-                    verticalCtx.fill();
                 }
             });
 
@@ -650,6 +667,9 @@
         filterSlider.addEventListener('input', processAndPlot);
         roadFilterCheck.addEventListener('change', processAndPlot);
         gBowlMaxSelect.addEventListener('change', processAndPlot);
+        showSafeCheck.addEventListener('change', processAndPlot);
+        showDriverCheck.addEventListener('change', processAndPlot);
+        showRoadCheck.addEventListener('change', processAndPlot);
 
         document.getElementById('resetBtn').addEventListener('click', async () => {
             const pass = prompt("データリセット用パスワードを入力してください (7710)");
