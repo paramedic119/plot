@@ -90,6 +90,11 @@
             cursor: pointer;
         }
 
+        select option {
+            background-color: #1e293b;
+            color: #f8fafc;
+        }
+
         #thresholdDisplay {
             margin-top: 20px;
             padding: 20px;
@@ -262,7 +267,7 @@
 
         <!-- 高度な分析設定 -->
         <div class="filter-control" style="background: rgba(33, 150, 243, 0.1); border-color: rgba(33, 150, 243, 0.3);">
-            <div style="font-weight: 600; margin-bottom: 12px; color: #90caf9;">🧭 高度なグラフィック・分析設定</div>
+            <div style="font-weight: 600; margin-bottom: 12px; color: #90caf9;">高度なグラフィック・分析設定</div>
 
             <div style="display: flex; flex-direction: column; gap: 15px;">
                 <label
@@ -335,7 +340,7 @@
             <!-- 走行セッション選択 -->
             <div class="filter-control"
                 style="background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); margin-top: 15px;">
-                <div style="font-weight: 600; margin-bottom: 12px; color: #81c784;">🚗 走行データ（同一ドライバー/回）の選択</div>
+                <div style="font-weight: 600; margin-bottom: 12px; color: #81c784;">走行データ（同一ドライバー/回）の選択</div>
                 <div
                     style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
                     <select id="runSelect"
@@ -697,7 +702,7 @@
 
         async function syncFromCloud(isAuto) {
             if (!isAuto) {
-                document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
+                document.getElementById('statsDisplay').innerText = "クラウドからデータ取得中...";
                 syncBtn.disabled = true;
             }
             try {
@@ -763,14 +768,14 @@
                     }
 
                     processAndPlot();
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "同期完了 (" + rawData.length + " 件)";
                 } else {
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした (配信なし)";
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "データが見つかりませんでした (配信なし)";
                     rawData = []; processAndPlot();
                 }
             } catch (e) {
                 console.error(e);
-                if (!isAuto) document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
+                if (!isAuto) document.getElementById('statsDisplay').innerText = "同期失敗: " + e.message;
             } finally {
                 if (!isAuto) syncBtn.disabled = false;
             }
