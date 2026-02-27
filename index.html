@@ -4,401 +4,538 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&family=Outfit:wght@400;700;900&display=swap"
+        rel="stylesheet">
     <title>ライド品質 統合分析ツール</title>
     <style>
         :root {
-            --primary: #4fc3f7;
-            --accent: #f44336;
-            --road: #fb8c00;
-            --bg: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --glass: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #0ea5e9;
+            --primary-glow: rgba(14, 165, 233, 0.4);
+            --accent: #f43f5e;
+            --road: #f59e0b;
+            --safe: #10b981;
+            --bg: #020617;
+            --surface: rgba(15, 23, 42, 0.6);
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
         }
 
         * {
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            font-family: 'Outfit', 'Inter', sans-serif;
-            background: radial-gradient(circle at top right, #1e293b, #0f172a);
-            color: #f8fafc;
+            font-family: 'Noto Sans JP', 'Outfit', 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, #1e293b, #020617);
+            background-attachment: fixed;
+            color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            line-height: 1.6;
         }
 
         h1 {
-            color: var(--primary);
-            margin-bottom: 20px;
-            font-weight: 700;
-            letter-spacing: 1px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 2.5rem;
+            margin: 0 0 30px 0;
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+            text-transform: uppercase;
         }
 
-        .controls {
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            padding: 24px;
-            border-radius: 20px;
-            margin-bottom: 24px;
+        /* 共通ボタン・コンテナ */
+        .glass-panel {
+            background: var(--surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             width: 100%;
-            max-width: 900px;
-            text-align: center;
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            max-width: 1000px;
+            padding: 32px;
+            margin-bottom: 30px;
         }
 
-        .btn-group button,
-        .btn-group a {
-            transition: transform 0.2s, opacity 0.2s;
+        .btn-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
         }
 
-        .btn-group button:active,
-        .btn-group a:active {
-            transform: scale(0.95);
-        }
-
-        .filter-control {
-            margin: 20px 0;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 16px;
-            border: 1px solid var(--glass-border);
-            text-align: left;
-        }
-
-        .slider-wrap {
+        .btn {
+            padding: 14px 24px;
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #991b1b);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            scale: 0.98;
+        }
+
+        /* フィルター・設定セクション */
+        .section-box {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 18px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 900;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-control {
+            margin-bottom: 25px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .slider-label {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 0.95rem;
+        }
+
+        .slider-value {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: var(--primary);
+            background: rgba(14, 165, 233, 0.1);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
             gap: 15px;
-            margin-top: 15px;
         }
 
         input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
             flex-grow: 1;
-            max-width: 400px;
-            accent-color: var(--primary);
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
         }
 
-        select,
-        input[type="checkbox"] {
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border: 3px solid var(--primary);
+            border-radius: 50%;
             cursor: pointer;
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: all 0.2s;
         }
 
-        #thresholdDisplay {
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(244, 67, 54, 0.1);
-            border: 1px solid rgba(244, 67, 54, 0.3);
-            border-radius: 16px;
-            text-align: left;
-            display: none;
-            backdrop-filter: blur(4px);
+        /* 統計・データ表示 */
+        #statsDisplay {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            margin-bottom: 24px;
+            display: inline-block;
         }
 
-        .threshold-title {
-            color: #ffcccc;
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 12px;
-            text-align: center;
-        }
-
-        .threshold-values {
+        /* チャートセクション */
+        .charts-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            font-size: 1rem;
-            color: #fff;
-            margin-bottom: 15px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 15px;
-            border-radius: 12px;
-        }
-
-        .rationale {
-            font-size: 0.8rem;
-            color: #94a3b8;
-            line-height: 1.6;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 12px;
-        }
-
-        .charts-wrapper {
-            display: flex;
-            flex-wrap: wrap;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 24px;
-            justify-content: center;
             width: 100%;
             max-width: 1200px;
         }
 
-        .chart-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(8px);
-            padding: 20px;
-            border-radius: 20px;
+        .chart-card {
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
         }
 
-        .chart-title {
-            margin-bottom: 15px;
-            font-weight: 600;
-            color: #cbd5e1;
-            font-size: 0.9rem;
+        .chart-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 800;
+            margin-bottom: 20px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1.5px;
+            width: 100%;
             text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 10px;
         }
 
         canvas {
-            background: #0f172a;
-            border: 1px solid #1e293b;
-            border-radius: 12px;
-            max-width: 100%;
-            height: auto;
+            background: #020617;
+            border-radius: 16px;
+            width: 100% !important;
+            height: auto !important;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         #bowlCanvas {
             border-radius: 50%;
         }
 
+        /* カスタムチェックボックス・選択肢 */
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .check-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        select {
+            background: rgba(15, 23, 42, 0.8);
+            color: #fff;
+            border: 1px solid var(--glass-border);
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            outline: none;
+            width: 100%;
+        }
+
+        /* 閾値・サマリー */
+        #thresholdDisplay {
+            margin-top: 30px;
+            padding: 24px;
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.1), rgba(15, 23, 42, 0.4));
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            border-radius: 20px;
+            display: none;
+        }
+
+        .threshold-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .threshold-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .threshold-item label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .threshold-item b {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
         .legend {
             display: flex;
             justify-content: center;
+            gap: 20px;
             flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
-            font-size: 0.85rem;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 10px;
-            border-radius: 12px;
+            margin-top: 32px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
         }
 
         .dot {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 6px;
-            vertical-align: middle;
+            margin-right: 8px;
         }
 
-        .line-legend {
-            width: 18px;
-            height: 2px;
-            background-color: #ff3b30;
-            display: inline-block;
-            margin-right: 6px;
-            vertical-align: middle;
-        }
-
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 16px;
             }
 
-            .btn-group {
-                flex-direction: column !important;
+            .charts-grid {
+                grid-template-columns: 1fr;
             }
 
-            .btn-group button,
-            .btn-group a {
-                width: 100% !important;
-                text-align: center;
+            .threshold-grid {
+                grid-template-columns: 1fr;
             }
 
-            .charts-wrapper {
-                gap: 12px;
-            }
-
-            .chart-container {
-                padding: 12px;
-                width: 100%;
+            h1 {
+                font-size: 2rem;
             }
         }
     </style>
 </head>
 
 <body>
-    <h1>INTEGRATED ANALYTICS</h1>
-    <div class="controls">
-        <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
-            <button id="syncBtn"
-                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">最新に同期</button>
-            <button id="resetBtn"
-                style="padding: 12px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">データリセット</button>
-            <a href="map.html" target="_blank"
-                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">地図解析</a>
-        </div>
-        <label style="font-size: 0.9rem; color: #cbd5e1; cursor: pointer; display: inline-block; margin-bottom: 10px;">
-            <input type="checkbox" id="autoRefreshCheck"> リアルタイム監視 (5秒周期)
-        </label>
-        <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem; font-weight: bold;">スプレッドシートからデータを取得中...</div>
+    <h1>Ride Quality Analytics</h1>
 
-        <!-- 信号処理フィルター -->
-        <div class="filter-control">
-            <div style="font-weight: 600; text-align: center;">L-PASS FILTER STRENGTH (ノイズ除去)</div>
-            <div class="slider-wrap">
-                <span style="font-size: 0.8rem; color: #475569;">弱</span>
-                <input type="range" id="filterSlider" min="1" max="50" value="10">
-                <span style="font-size: 0.8rem; color: #475569;">強</span>
+    <div id="statsDisplay">データを取得中...</div>
+
+    <div class="glass-panel">
+        <div class="btn-group">
+            <button id="syncBtn" class="btn btn-primary">
+                <span>🔄</span> クラウド同期
+            </button>
+            <button id="resetBtn" class="btn btn-danger">
+                <span>🗑️</span> 表示リセット
+            </button>
+            <a href="map.html" target="_blank" class="btn btn-success">
+                <span>🗺️</span> 地図で詳細解析
+            </a>
+        </div>
+
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
+            <label class="check-item">
+                <input type="checkbox" id="autoRefreshCheck" style="width: 18px; height: 18px;">
+                <span style="font-weight: 700;">リアルタイム監視 (5秒毎)</span>
+            </label>
+        </div>
+
+        <!-- 基本フィルター -->
+        <div class="section-box">
+            <div class="section-title">📉 基本信号処理</div>
+            <div class="slider-control">
+                <div class="slider-header">
+                    <span class="slider-label">ノイズ除去 (L-PASS強度)</span>
+                    <span id="filterValueDisplay" class="slider-value">過去 10 サンプル</span>
+                </div>
+                <div class="slider-container">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">弱</span>
+                    <input type="range" id="filterSlider" min="1" max="50" value="10">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">強</span>
+                </div>
             </div>
-            <div id="filterValueDisplay"
-                style="margin-top:5px; color:var(--primary); font-size: 0.85rem; font-weight: 600; text-align: center;">
-                過去 10 サンプル (約 0.2 秒)</div>
         </div>
 
         <!-- 高度な分析設定 -->
-        <div class="filter-control" style="background: rgba(33, 150, 243, 0.1); border-color: rgba(33, 150, 243, 0.3);">
-            <div style="font-weight: 600; margin-bottom: 12px; color: #90caf9;">🧭 高度なグラフィック・分析設定</div>
+        <div class="section-box">
+            <div class="section-title">🧭 分析・表示アルゴリズム設定</div>
 
-            <div style="display: flex; flex-direction: column; gap: 15px;">
-                <label
-                    style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <input type="checkbox" id="roadFilterCheck" checked style="width: 18px; height: 18px;">
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <!-- Z軸フィルター -->
+                <label class="check-item" style="border-left: 4px solid var(--road);">
+                    <input type="checkbox" id="roadFilterCheck" checked style="width: 20px; height: 20px;">
                     <div style="display: flex; flex-direction: column;">
-                        <span style="font-weight: bold; color: #fff;">路面起因の不快感を分離 (Z軸要因フィルター)</span>
+                        <span style="font-weight: 800; font-size: 1.05rem;">路面要因の自動分離 (Z軸フィルター)</span>
                         <span
-                            style="font-size: 0.75rem; color: #94a3b8;">Z軸のJerk(衝撃)が強い不快データをオレンジ色で示し、自動閾値の計算から除外します。</span>
+                            style="font-size: 0.8rem; color: var(--text-muted);">縦揺れの強い衝撃を検知し、運転操作ミスによる不快感から自動的に除外します。</span>
                     </div>
                 </label>
 
-                <div
-                    style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <span style="font-weight: bold; color: #fff;">G-Bowlの最大スケール (背景円の範囲):</span>
-                    <select id="gBowlMaxSelect"
-                        style="background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 6px 12px; font-weight: bold; font-size: 1rem;">
-                        <option value="0.20">0.20 G</option>
-                        <option value="0.25">0.25 G</option>
-                        <option value="0.30">0.30 G</option>
-                        <option value="0.35">0.35 G</option>
-                        <option value="0.40" selected>0.40 G</option>
-                        <option value="0.45">0.45 G</option>
-                        <option value="0.50">0.50 G</option>
-                        <option value="0.60">0.60 G</option>
-                        <option value="0.80">0.80 G</option>
-                        <option value="1.00">1.00 G</option>
-                    </select>
-                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                    <!-- スケール選択 -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 16px;">
+                        <label
+                            style="display: block; font-size: 0.75rem; font-weight: 800; color: var(--text-muted); margin-bottom: 10px;">G-Bowl
+                            最大スケール</label>
+                        <select id="gBowlMaxSelect">
+                            <option value="0.20">0.20 G</option>
+                            <option value="0.25">0.25 G</option>
+                            <option value="0.30">0.30 G</option>
+                            <option value="0.35">0.35 G</option>
+                            <option value="0.40" selected>0.40 G</option>
+                            <option value="0.45">0.45 G</option>
+                            <option value="0.50">0.50 G</option>
+                            <option value="0.60">0.60 G</option>
+                            <option value="0.80">0.80 G</option>
+                            <option value="1.00">1.00 G</option>
+                        </select>
+                    </div>
 
-                <!-- 路面感度（Z軸判定）調整スライダー -->
-                <div
-                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(251, 140, 0, 0.3);">
-                    <div
-                        style="display: flex; justify-content: space-between; font-weight: bold; color: var(--road); margin-bottom: 8px;">
-                        <span>路面起因の判定感度 (Z軸衝撃閾値)</span>
-                        <span id="zThresholdValue">0.80 G/s</span>
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">敏感<br>(路面になりやすい)</span>
-                        <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.8"
-                            style="accent-color: var(--road);">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">鈍感<br>(運転になりやすい)</span>
-                    </div>
-                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                        不快時のZ軸衝撃がこの値を超えると「路面起因（橙）」、下回ると「運転操作（赤）」と分類されます。
+                    <!-- 走行選択 -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 16px;">
+                        <label
+                            style="display: block; font-size: 0.75rem; font-weight: 800; color: var(--text-muted); margin-bottom: 10px;">表示データの選択</label>
+                        <select id="runSelect">
+                            <option value="all">すべての走行データ (全体分析)</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- 反応遅延補正（ルックバック）スライダー -->
-                <div
-                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(76, 175, 80, 0.3); margin-top: 15px;">
-                    <div
-                        style="display: flex; justify-content: space-between; font-weight: bold; color: #4ade80; margin-bottom: 8px;">
-                        <span>反応遅延の補正 (過去への遡り)</span>
-                        <span id="lookbackValue">0.5 秒</span>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- Z軸閾値 -->
+                    <div class="slider-control"
+                        style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 16px;">
+                        <div class="slider-header">
+                            <span class="slider-label" style="color: var(--road);">路面判定の感度 (Z衝撃)</span>
+                            <span id="zThresholdValue" class="slider-value"
+                                style="color: var(--road); background: rgba(245, 158, 11, 0.1);">0.80 G/s</span>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.8">
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 10px; text-align: center;">
+                            低いほど敏感に路面として判定します。</div>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">0秒<br>(直上のみ)</span>
-                        <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="0.5"
-                            style="accent-color: #4ade80;">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">3秒<br>(長く遡る)</span>
-                    </div>
-                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                        ボタンが押された瞬間から、設定した秒数だけ過去に遡って、最大のZ軸衝撃を探します。
-                    </div>
-                </div>
-            </div>
 
-            <!-- 走行セッション選択 -->
-            <div class="filter-control"
-                style="background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); margin-top: 15px;">
-                <div style="font-weight: 600; margin-bottom: 12px; color: #81c784;">🚗 走行データ（同一ドライバー/回）の選択</div>
-                <div
-                    style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <select id="runSelect"
-                        style="width: 100%; background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 8px; font-weight: bold; font-size: 0.9rem;">
-                        <option value="all">すべての走行データ (全体を表示)</option>
-                    </select>
-                </div>
-                <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                    1分以上のデータ空白を元に自動的に走行を区切っています。特定の運転者・回の分析を行う場合に選択してください。
+                    <!-- 反応遅延 -->
+                    <div class="slider-control"
+                        style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 16px;">
+                        <div class="slider-header">
+                            <span class="slider-label" style="color: var(--safe);">反応遅延の補正 (遡り)</span>
+                            <span id="lookbackValue" class="slider-value"
+                                style="color: var(--safe); background: rgba(16, 185, 129, 0.1);">0.5 秒</span>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="0.5">
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 10px; text-align: center;">
+                            ボタン押下から最大でどれだけ過去の衝撃を拾うか。</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div id="thresholdDisplay">
-            <div class="threshold-title">自動算出された 運転操作の不快閾値限界</div>
-            <div class="threshold-values" id="thresholdValues"></div>
-            <div class="rationale">
-                <strong>【統計的根拠 (95th Percentile)】</strong><br>
-                Z軸起因（路面の段差など）のデータを除外し、純粋な「加減速・ハンドル操作」による不快申告のみを抽出。<br>
-                その95パーセンタイル値を採用することで、客観的な安全運転の境界線を導き出しています。
+            <div class="section-title" style="color: var(--accent); justify-content: center;">🚩 自動解析による運転限界閾値</div>
+            <div class="threshold-grid" id="thresholdValues"></div>
+            <div
+                style="font-size: 0.75rem; color: var(--text-muted); text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                路面起因を除外した、純粋な「操作起因」の申告データ上位5%を統計的に除外した実質的な限界値です。
             </div>
         </div>
 
         <div class="legend">
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <label class="check-item" style="padding: 8px 14px; font-size: 0.8rem;">
                 <input type="checkbox" id="showSafeCheck" checked>
-                <span class="dot" style="background: rgba(76, 175, 80, 0.5);"></span>快適/安全
+                <span class="dot" style="background: var(--safe); box-shadow: 0 0 10px var(--safe);"></span>快適
             </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <label class="check-item" style="padding: 8px 14px; font-size: 0.8rem;">
                 <input type="checkbox" id="showDriverCheck" checked>
-                <span class="dot" style="background: rgba(244, 67, 54, 0.8);"></span>操作起因 (赤)
+                <span class="dot" style="background: var(--accent); box-shadow: 0 0 10px var(--accent);"></span>運転要因
             </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <label class="check-item" style="padding: 8px 14px; font-size: 0.8rem;">
                 <input type="checkbox" id="showRoadCheck" checked>
-                <span class="dot" style="background: var(--road);"></span>路面起因 (橙)
+                <span class="dot" style="background: var(--road); box-shadow: 0 0 10px var(--road);"></span>路面要因
             </label>
-            <div><span class="line-legend"></span>自動算出閾値ライン</div>
+            <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 8px;">
+                <span style="width: 20px; height: 1px; border-bottom: 2px dashed var(--accent);"></span> 限界境界線
+            </div>
         </div>
     </div>
 
-    <div class="charts-wrapper" id="chartsArea">
-        <!-- 散布図 (NEW) -->
-        <div class="chart-container" style="width: 100%; max-width: 924px; border: 1px solid var(--primary);">
-            <div class="chart-title" style="color: var(--primary);">Road Factor vs Driver Factor (不快要因の分離散布図)</div>
+    <div class="charts-grid" id="chartsArea">
+        <!-- 散布図 -->
+        <div class="chart-card" style="grid-column: 1 / -1; border-color: var(--primary-glow);">
+            <div class="chart-label" style="color: var(--primary);">Impact Analysis: Road vs Driver (不快要因分離マトリクス)</div>
             <canvas id="scatterCanvas" width="800" height="350"></canvas>
-            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 10px; width: 100%; text-align: center;">
-                <strong>X軸: 車両操作の粗さ (XY軸の力)</strong> / <strong>Y軸: 路面の悪さ (Z軸の衝撃力)</strong><br>
-                右下にプロットされるほど「運転の問題」、左上にプロットされるほど「道が悪かった」という意味になります。
+            <div
+                style="display: flex; width: 100%; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 14px; padding: 0 40px;">
+                <span>← 穏やかな操作</span>
+                <span style="font-weight: 800; color: var(--text-main);">不快要因の特定</span>
+                <span>激しい操作 →</span>
             </div>
         </div>
 
-        <div class="chart-container">
-            <div class="chart-title">G-Bowl Plane (Lon/Lat G)</div>
+        <div class="chart-card">
+            <div class="chart-label">G-Bowl Distribution (円運動計測)</div>
             <canvas id="bowlCanvas" width="400" height="400"></canvas>
         </div>
-        <div class="chart-container">
-            <div class="chart-title">Jerk vs Composite G (Impact)</div>
+        <div class="chart-card">
+            <div class="chart-label">Impact Mapping (Jerk vs G)</div>
             <canvas id="jerkCanvas" width="500" height="400"></canvas>
         </div>
-        <div class="chart-container">
-            <div class="chart-title">Vertical G (Z-Axis) Timeline</div>
+        <div class="chart-card">
+            <div class="chart-label">Vertical G Timeline (縦揺れ履歴)</div>
             <canvas id="verticalCanvas" width="500" height="200"></canvas>
         </div>
-        <div class="chart-container">
-            <div class="chart-title">Heading (Yaw) & GPS Path (Relative)</div>
+        <div class="chart-card">
+            <div class="chart-label">Tracking Path (走行軌跡推定)</div>
             <canvas id="pathCanvas" width="400" height="400"></canvas>
         </div>
     </div>
@@ -690,26 +827,26 @@
 
                 thresholdDisplay.style.display = 'block';
                 thresholdValues.innerHTML = `
-                    <div>Lateral (左右): <b>${threshGx.toFixed(2)} G</b></div>
-                    <div>Longitudinal (前後): <b>${threshGy.toFixed(2)} G</b></div>
-                    <div>Jerk (衝撃): <b>${threshJerk.toFixed(2)} G/s</b></div>
-                    <div>Combined (合成): <b>${threshG.toFixed(2)} G</b></div>
+                    <div class="threshold-item"><label>左右旋回 G</label><b>${threshGx.toFixed(2)} G</b></div>
+                    <div class="threshold-item"><label>前後加減速 G</label><b>${threshGy.toFixed(2)} G</b></div>
+                    <div class="threshold-item"><label>ジャーク (衝撃度)</label><b>${threshJerk.toFixed(2)} G/s</b></div>
+                    <div class="threshold-item"><label>トータル合成 G</label><b>${threshG.toFixed(2)} G</b></div>
                 `;
             } else {
                 thresholdDisplay.style.display = 'none';
                 if (dangerC > 0 && dangerC < 20) {
-                    document.getElementById('statsDisplay').innerText += " | ※閾値算出には操作起因の不快データが20件以上必要です";
+                    document.getElementById('statsDisplay').innerText += " | ※分析精度向上のため操作起因データが20件以上必要です";
                 }
             }
 
-            let msg = `Data: ${processedData.length} | Comfort: ${safeC} | Driver Uncomfort: ${dangerC}`;
-            if (useRoadFilter) msg += ` | Road Bump Uncomfort: ${roadC}`;
+            let msg = `🛰️ 分析対象: ${processedData.length}件 | 😊 快適: ${safeC}件 | ⚠️ 運転要因: ${dangerC}件`;
+            if (useRoadFilter) msg += ` | 🚧 路面要因: ${roadC}件`;
             document.getElementById('statsDisplay').innerText = msg;
         }
 
         async function syncFromCloud(isAuto) {
             if (!isAuto) {
-                document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
+                document.getElementById('statsDisplay').innerText = "☁️ クラウドから最新データを取得中...";
                 syncBtn.disabled = true;
             }
             try {
@@ -775,9 +912,9 @@
                     }
 
                     processAndPlot();
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "✨ 同期完了 (" + rawData.length + "件を取得)";
                 } else {
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした (配信なし)";
+                    if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが届いていないようです";
                     rawData = []; processAndPlot();
                 }
             } catch (e) {
