@@ -342,7 +342,7 @@
                     </select>
                 </div>
                 <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                    5分以上のデータ空白を元に自動的に走行を区切っています。特定の運転者・回の分析を行う場合に選択してください。
+                    1分以上のデータ空白を元に自動的に走行を区切っています。特定の運転者・回の分析を行う場合に選択してください。
                 </div>
             </div>
         </div>
@@ -728,8 +728,8 @@
                     }));
                     rawData.sort((a, b) => a.time - b.time);
 
-                    // Group into Trips based on time gaps (> 5 minutes)
-                    const GAP_THRESHOLD_MS = 300000;
+                    // Group into Trips based on time gaps (> 1 minute)
+                    const GAP_THRESHOLD_MS = 60000;
                     currentTrips = [];
                     if (rawData.length > 0) {
                         let tripStartIdx = 0;
