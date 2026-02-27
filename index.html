@@ -228,6 +228,67 @@
                 width: 100%;
             }
         }
+
+        /* モーダル専用スタイル */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: var(--bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 15px;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #f8fafc;
+        }
     </style>
 </head>
 
@@ -236,598 +297,624 @@
     <div class="controls">
         <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
             <button id="syncBtn"
-                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">最新に同期</button>
+                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">🔄
+                最新に同期</button>
+            <button id="settingsBtn"
+                style="flex: 1; padding: 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid var(--glass-border); border-radius: 12px; font-weight: 700; cursor: pointer;">⚙️
+                分析設定</button>
             <button id="resetBtn"
-                style="padding: 12px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">データリセット</button>
+                style="padding: 12px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">🗑️
+                データリセット</button>
             <a href="map.html" target="_blank"
-                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">地図解析</a>
+                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">🗺️
+                地図解析</a>
         </div>
         <label style="font-size: 0.9rem; color: #cbd5e1; cursor: pointer; display: inline-block; margin-bottom: 10px;">
             <input type="checkbox" id="autoRefreshCheck"> リアルタイム監視 (5秒周期)
         </label>
         <div id="statsDisplay" style="color:#64748b; font-size: 0.9rem; font-weight: bold;">スプレッドシートからデータを取得中...</div>
 
-        <!-- 信号処理フィルター -->
-        <div class="filter-control">
-            <div style="font-weight: 600; text-align: center;">L-PASS FILTER STRENGTH (ノイズ除去)</div>
-            <div class="slider-wrap">
-                <span style="font-size: 0.8rem; color: #475569;">弱</span>
-                <input type="range" id="filterSlider" min="1" max="50" value="10">
-                <span style="font-size: 0.8rem; color: #475569;">強</span>
-            </div>
-            <div id="filterValueDisplay"
-                style="margin-top:5px; color:var(--primary); font-size: 0.85rem; font-weight: 600; text-align: center;">
-                過去 10 サンプル (約 0.2 秒)</div>
-        </div>
-
-        <!-- 高度な分析設定 -->
-        <div class="filter-control" style="background: rgba(33, 150, 243, 0.1); border-color: rgba(33, 150, 243, 0.3);">
-            <div style="font-weight: 600; margin-bottom: 12px; color: #90caf9;">🧭 高度なグラフィック・分析設定</div>
-
-            <div style="display: flex; flex-direction: column; gap: 15px;">
-                <label
-                    style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <input type="checkbox" id="roadFilterCheck" checked style="width: 18px; height: 18px;">
-                    <div style="display: flex; flex-direction: column;">
-                        <span style="font-weight: bold; color: #fff;">路面起因の不快感を分離 (Z軸要因フィルター)</span>
-                        <span
-                            style="font-size: 0.75rem; color: #94a3b8;">Z軸のJerk(衝撃)が強い不快データをオレンジ色で示し、自動閾値の計算から除外します。</span>
-                    </div>
-                </label>
-
-                <div
-                    style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <span style="font-weight: bold; color: #fff;">G-Bowlの最大スケール (背景円の範囲):</span>
-                    <select id="gBowlMaxSelect"
-                        style="background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 6px 12px; font-weight: bold; font-size: 1rem;">
-                        <option value="0.20">0.20 G</option>
-                        <option value="0.25">0.25 G</option>
-                        <option value="0.30">0.30 G</option>
-                        <option value="0.35">0.35 G</option>
-                        <option value="0.40" selected>0.40 G</option>
-                        <option value="0.45">0.45 G</option>
-                        <option value="0.50">0.50 G</option>
-                        <option value="0.60">0.60 G</option>
-                        <option value="0.80">0.80 G</option>
-                        <option value="1.00">1.00 G</option>
-                    </select>
+        <div id="settingsModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">⚙️ アルゴリズム・分析設定</div>
+                    <button class="modal-close" id="closeSettingsBtn">&times;</button>
                 </div>
 
-                <!-- 路面感度（Z軸判定）調整スライダー -->
-                <div
-                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(251, 140, 0, 0.3);">
-                    <div
-                        style="display: flex; justify-content: space-between; font-weight: bold; color: var(--road); margin-bottom: 8px;">
-                        <span>路面起因の判定感度 (Z軸衝撃閾値)</span>
-                        <span id="zThresholdValue">0.80 G/s</span>
+                <!-- 信号処理フィルター -->
+                <div class="filter-control" style="margin-top: 0;">
+                    <div style="font-weight: 600; text-align: center;">L-PASS FILTER STRENGTH (ノイズ除去)</div>
+                    <div class="slider-wrap">
+                        <span style="font-size: 0.8rem; color: #475569;">弱</span>
+                        <input type="range" id="filterSlider" min="1" max="50" value="10">
+                        <span style="font-size: 0.8rem; color: #475569;">強</span>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">敏感<br>(路面になりやすい)</span>
-                        <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.8"
-                            style="accent-color: var(--road);">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">鈍感<br>(運転になりやすい)</span>
+                    <div id="filterValueDisplay"
+                        style="margin-top:5px; color:var(--primary); font-size: 0.85rem; font-weight: 600; text-align: center;">
+                        過去 10 サンプル (約 0.2 秒)</div>
+                </div>
+
+                <!-- 高度な分析設定 -->
+                <div class="filter-control"
+                    style="background: rgba(33, 150, 243, 0.1); border-color: rgba(33, 150, 243, 0.3);">
+                    <div style="font-weight: 600; margin-bottom: 12px; color: #90caf9;">🧭 高度なグラフィック・分析設定</div>
+
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                            <input type="checkbox" id="roadFilterCheck" checked style="width: 18px; height: 18px;">
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-weight: bold; color: #fff;">路面起因の不快感を分離 (Z軸要因フィルター)</span>
+                                <span
+                                    style="font-size: 0.75rem; color: #94a3b8;">Z軸のJerk(衝撃)が強い不快データをオレンジ色で示し、自動閾値の計算から除外します。</span>
+                            </div>
+                        </label>
+
+                        <div
+                            style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                            <span style="font-weight: bold; color: #fff;">G-Bowlの最大スケール (背景円の範囲):</span>
+                            <select id="gBowlMaxSelect"
+                                style="background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 6px 12px; font-weight: bold; font-size: 1rem;">
+                                <option value="0.20">0.20 G</option>
+                                <option value="0.25">0.25 G</option>
+                                <option value="0.30">0.30 G</option>
+                                <option value="0.35">0.35 G</option>
+                                <option value="0.40" selected>0.40 G</option>
+                                <option value="0.45">0.45 G</option>
+                                <option value="0.50">0.50 G</option>
+                                <option value="0.60">0.60 G</option>
+                                <option value="0.80">0.80 G</option>
+                                <option value="1.00">1.00 G</option>
+                            </select>
+                        </div>
+
+                        <!-- 路面感度（Z軸判定）調整スライダー -->
+                        <div
+                            style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(251, 140, 0, 0.3);">
+                            <div
+                                style="display: flex; justify-content: space-between; font-weight: bold; color: var(--road); margin-bottom: 8px;">
+                                <span>路面起因の判定感度 (Z軸衝撃閾値)</span>
+                                <span id="zThresholdValue">0.80 G/s</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 0.7rem; color: #94a3b8;">敏感<br>(路面になりやすい)</span>
+                                <input type="range" id="zThresholdSlider" min="0.1" max="2.0" step="0.05" value="0.8"
+                                    style="accent-color: var(--road);">
+                                <span style="font-size: 0.7rem; color: #94a3b8;">鈍感<br>(運転になりやすい)</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
+                                不快時のZ軸衝撃がこの値を超えると「路面起因（橙）」、下回ると「運転操作（赤）」と分類されます。
+                            </div>
+                        </div>
+
+                        <!-- 反応遅延補正（ルックバック）スライダー -->
+                        <div
+                            style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(76, 175, 80, 0.3); margin-top: 15px;">
+                            <div
+                                style="display: flex; justify-content: space-between; font-weight: bold; color: #4ade80; margin-bottom: 8px;">
+                                <span>反応遅延の補正 (過去への遡り)</span>
+                                <span id="lookbackValue">0.5 秒</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 0.7rem; color: #94a3b8;">0秒<br>(直上のみ)</span>
+                                <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="0.5"
+                                    style="accent-color: #4ade80;">
+                                <span style="font-size: 0.7rem; color: #94a3b8;">3秒<br>(長く遡る)</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
+                                ボタンが押された瞬間から、設定した秒数だけ過去に遡って、最大のZ軸衝撃を探します。
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                        不快時のZ軸衝撃がこの値を超えると「路面起因（橙）」、下回ると「運転操作（赤）」と分類されます。
+
+                    <!-- 走行セッション選択 (メイン画面に残す) -->
+                    <div class="filter-control"
+                        style="background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); margin-top: 15px;">
+                        <div style="font-weight: 600; margin-bottom: 12px; color: #81c784;">🚗 走行データ（同一ドライバー/回）の選択</div>
+                        <div
+                            style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                            <select id="runSelect"
+                                style="width: 100%; background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 8px; font-weight: bold; font-size: 0.9rem;">
+                                <option value="all">すべての走行データ (全体を表示)</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
+                            1分以上のデータ空白を元に自動的に走行を区切っています。特定の運転者・回の分析を行う場合に選択してください。
+                        </div>
+                    </div>
+
+                    <div id="thresholdDisplay">
+                        <div class="threshold-title">自動算出された 運転操作の不快閾値限界</div>
+                        <div class="threshold-values" id="thresholdValues"></div>
+                        <div class="rationale">
+                            <strong>【統計的根拠 (95th Percentile)】</strong><br>
+                            Z軸起因（路面の段差など）のデータを除外し、純粋な「加減速・ハンドル操作」による不快申告のみを抽出。<br>
+                            その95パーセンタイル値を採用することで、客観的な安全運転の境界線を導き出しています。
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="showSafeCheck" checked>
+                            <span class="dot" style="background: rgba(76, 175, 80, 0.5);"></span>快適/安全
+                        </label>
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="showDriverCheck" checked>
+                            <span class="dot" style="background: rgba(244, 67, 54, 0.8);"></span>操作起因 (赤)
+                        </label>
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="showRoadCheck" checked>
+                            <span class="dot" style="background: var(--road);"></span>路面起因 (橙)
+                        </label>
+                        <div><span class="line-legend"></span>自動算出閾値ライン</div>
                     </div>
                 </div>
 
-                <!-- 反応遅延補正（ルックバック）スライダー -->
-                <div
-                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(76, 175, 80, 0.3); margin-top: 15px;">
-                    <div
-                        style="display: flex; justify-content: space-between; font-weight: bold; color: #4ade80; margin-bottom: 8px;">
-                        <span>反応遅延の補正 (過去への遡り)</span>
-                        <span id="lookbackValue">0.5 秒</span>
+                <div class="charts-grid" id="chartsArea">
+                    <!-- 散布図 (NEW) -->
+                    <div class="chart-container" style="grid-column: 1 / -1; border: 1px solid var(--primary);">
+                        <div class="chart-title" style="color: var(--primary);">Road Factor vs Driver Factor
+                            (不快要因の分離散布図)</div>
+                        <canvas id="scatterCanvas" width="800" height="350"></canvas>
+                        <div
+                            style="font-size: 0.8rem; color: #94a3b8; margin-top: 10px; width: 100%; text-align: center;">
+                            <strong>X軸: 車両操作の粗さ (XY軸の力)</strong> / <strong>Y軸: 路面の悪さ (Z軸の衝撃力)</strong><br>
+                            右下にプロットされるほど「運転の問題」、左上にプロットされるほど「道が悪かった」という意味になります。
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">0秒<br>(直上のみ)</span>
-                        <input type="range" id="lookbackSlider" min="0.0" max="3.0" step="0.1" value="0.5"
-                            style="accent-color: #4ade80;">
-                        <span style="font-size: 0.7rem; color: #94a3b8;">3秒<br>(長く遡る)</span>
+
+                    <div class="chart-container">
+                        <div class="chart-title">G-Bowl Plane (Lon/Lat G)</div>
+                        <canvas id="bowlCanvas" width="400" height="400"></canvas>
                     </div>
-                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                        ボタンが押された瞬間から、設定した秒数だけ過去に遡って、最大のZ軸衝撃を探します。
+                    <div class="chart-container">
+                        <div class="chart-title">Jerk vs Composite G (Impact)</div>
+                        <canvas id="jerkCanvas" width="500" height="400"></canvas>
+                    </div>
+                    <div class="chart-container" style="grid-column: 1 / -1;">
+                        <div class="chart-title">Vertical G (Z-Axis) Timeline</div>
+                        <canvas id="verticalCanvas" width="1000" height="200"></canvas>
                     </div>
                 </div>
-            </div>
 
-            <!-- 走行セッション選択 -->
-            <div class="filter-control"
-                style="background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); margin-top: 15px;">
-                <div style="font-weight: 600; margin-bottom: 12px; color: #81c784;">🚗 走行データ（同一ドライバー/回）の選択</div>
-                <div
-                    style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <select id="runSelect"
-                        style="width: 100%; background: var(--glass); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 8px; font-weight: bold; font-size: 0.9rem;">
-                        <option value="all">すべての走行データ (全体を表示)</option>
-                    </select>
-                </div>
-                <div style="font-size: 0.7rem; color: #64748b; margin-top: 8px;">
-                    1分以上のデータ空白を元に自動的に走行を区切っています。特定の運転者・回の分析を行う場合に選択してください。
-                </div>
-            </div>
-        </div>
+                <script>
+                    const bowlCtx = document.getElementById('bowlCanvas').getContext('2d');
+                    const jerkCtx = document.getElementById('jerkCanvas').getContext('2d');
+                    const verticalCtx = document.getElementById('verticalCanvas').getContext('2d');
+                    const scatterCtx = document.getElementById('scatterCanvas').getContext('2d');
 
-        <div id="thresholdDisplay">
-            <div class="threshold-title">自動算出された 運転操作の不快閾値限界</div>
-            <div class="threshold-values" id="thresholdValues"></div>
-            <div class="rationale">
-                <strong>【統計的根拠 (95th Percentile)】</strong><br>
-                Z軸起因（路面の段差など）のデータを除外し、純粋な「加減速・ハンドル操作」による不快申告のみを抽出。<br>
-                その95パーセンタイル値を採用することで、客観的な安全運転の境界線を導き出しています。
-            </div>
-        </div>
+                    const filterSlider = document.getElementById('filterSlider');
+                    const filterValueDisplay = document.getElementById('filterValueDisplay');
+                    const roadFilterCheck = document.getElementById('roadFilterCheck');
+                    const gBowlMaxSelect = document.getElementById('gBowlMaxSelect');
+                    const zThresholdSlider = document.getElementById('zThresholdSlider');
+                    const zThresholdValue = document.getElementById('zThresholdValue');
+                    const lookbackSlider = document.getElementById('lookbackSlider');
+                    const lookbackValue = document.getElementById('lookbackValue');
+                    const runSelect = document.getElementById('runSelect');
+                    const showSafeCheck = document.getElementById('showSafeCheck');
+                    const showDriverCheck = document.getElementById('showDriverCheck');
+                    const showRoadCheck = document.getElementById('showRoadCheck');
+                    const thresholdDisplay = document.getElementById('thresholdDisplay');
+                    const thresholdValues = document.getElementById('thresholdValues');
+                    const syncBtn = document.getElementById('syncBtn');
+                    const autoRefreshCheck = document.getElementById('autoRefreshCheck');
 
-        <div class="legend">
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                <input type="checkbox" id="showSafeCheck" checked>
-                <span class="dot" style="background: rgba(76, 175, 80, 0.5);"></span>快適/安全
-            </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                <input type="checkbox" id="showDriverCheck" checked>
-                <span class="dot" style="background: rgba(244, 67, 54, 0.8);"></span>操作起因 (赤)
-            </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                <input type="checkbox" id="showRoadCheck" checked>
-                <span class="dot" style="background: var(--road);"></span>路面起因 (橙)
-            </label>
-            <div><span class="line-legend"></span>自動算出閾値ライン</div>
-        </div>
-    </div>
+                    const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
 
-    <div class="charts-grid" id="chartsArea">
-        <!-- 散布図 (NEW) -->
-        <div class="chart-container" style="grid-column: 1 / -1; border: 1px solid var(--primary);">
-            <div class="chart-title" style="color: var(--primary);">Road Factor vs Driver Factor (不快要因の分離散布図)</div>
-            <canvas id="scatterCanvas" width="800" height="350"></canvas>
-            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 10px; width: 100%; text-align: center;">
-                <strong>X軸: 車両操作の粗さ (XY軸の力)</strong> / <strong>Y軸: 路面の悪さ (Z軸の衝撃力)</strong><br>
-                右下にプロットされるほど「運転の問題」、左上にプロットされるほど「道が悪かった」という意味になります。
-            </div>
-        </div>
+                    let rawData = []; // All data fetched
+                    let currentTrips = []; // List of identified trips
+                    let wakeLock = null;
+                    let refreshInterval = null;
 
-        <div class="chart-container">
-            <div class="chart-title">G-Bowl Plane (Lon/Lat G)</div>
-            <canvas id="bowlCanvas" width="400" height="400"></canvas>
-        </div>
-        <div class="chart-container">
-            <div class="chart-title">Jerk vs Composite G (Impact)</div>
-            <canvas id="jerkCanvas" width="500" height="400"></canvas>
-        </div>
-        <div class="chart-container" style="grid-column: 1 / -1;">
-            <div class="chart-title">Vertical G (Z-Axis) Timeline</div>
-            <canvas id="verticalCanvas" width="1000" height="200"></canvas>
-        </div>
-    </div>
+                    const padding = 50; const pWidth = 400; const pHeight = 300;
+                    const sPadding = 60; const sWidth = 800 - sPadding * 2; const sHeight = 350 - sPadding * 2;
+                    const vWidth = 900; // Total vertical timeline width
+                    const jMaxX = 1.0; const jMaxY = 0.5;
+                    const bCenter = 200;
 
-    <script>
-        const bowlCtx = document.getElementById('bowlCanvas').getContext('2d');
-        const jerkCtx = document.getElementById('jerkCanvas').getContext('2d');
-        const verticalCtx = document.getElementById('verticalCanvas').getContext('2d');
-        const scatterCtx = document.getElementById('scatterCanvas').getContext('2d');
+                    function drawGrids() {
+                        const gMax = parseFloat(gBowlMaxSelect.value);
+                        const bScale = 200 / gMax;
 
-        const filterSlider = document.getElementById('filterSlider');
-        const filterValueDisplay = document.getElementById('filterValueDisplay');
-        const roadFilterCheck = document.getElementById('roadFilterCheck');
-        const gBowlMaxSelect = document.getElementById('gBowlMaxSelect');
-        const zThresholdSlider = document.getElementById('zThresholdSlider');
-        const zThresholdValue = document.getElementById('zThresholdValue');
-        const lookbackSlider = document.getElementById('lookbackSlider');
-        const lookbackValue = document.getElementById('lookbackValue');
-        const runSelect = document.getElementById('runSelect');
-        const showSafeCheck = document.getElementById('showSafeCheck');
-        const showDriverCheck = document.getElementById('showDriverCheck');
-        const showRoadCheck = document.getElementById('showRoadCheck');
-        const thresholdDisplay = document.getElementById('thresholdDisplay');
-        const thresholdValues = document.getElementById('thresholdValues');
-        const syncBtn = document.getElementById('syncBtn');
-        const autoRefreshCheck = document.getElementById('autoRefreshCheck');
+                        // G-Bowl
+                        bowlCtx.clearRect(0, 0, 400, 400);
+                        bowlCtx.strokeStyle = '#1e293b'; bowlCtx.fillStyle = '#475569';
+                        bowlCtx.beginPath(); bowlCtx.moveTo(0, bCenter); bowlCtx.lineTo(400, bCenter);
+                        bowlCtx.moveTo(bCenter, 0); bowlCtx.lineTo(bCenter, 400); bowlCtx.stroke();
 
-        const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
-
-        let rawData = []; // All data fetched
-        let currentTrips = []; // List of identified trips
-        let wakeLock = null;
-        let refreshInterval = null;
-
-        const padding = 50; const pWidth = 400; const pHeight = 300;
-        const sPadding = 60; const sWidth = 800 - sPadding * 2; const sHeight = 350 - sPadding * 2;
-        const vWidth = 900; // Total vertical timeline width
-        const jMaxX = 1.0; const jMaxY = 0.5;
-        const bCenter = 200;
-
-        function drawGrids() {
-            const gMax = parseFloat(gBowlMaxSelect.value);
-            const bScale = 200 / gMax;
-
-            // G-Bowl
-            bowlCtx.clearRect(0, 0, 400, 400);
-            bowlCtx.strokeStyle = '#1e293b'; bowlCtx.fillStyle = '#475569';
-            bowlCtx.beginPath(); bowlCtx.moveTo(0, bCenter); bowlCtx.lineTo(400, bCenter);
-            bowlCtx.moveTo(bCenter, 0); bowlCtx.lineTo(bCenter, 400); bowlCtx.stroke();
-
-            bowlCtx.font = '10px sans-serif';
-            let step = (gMax <= 0.3) ? 0.05 : 0.1;
-            for (let g = step; g <= gMax; g += step) {
-                bowlCtx.beginPath(); bowlCtx.arc(bCenter, bCenter, g * bScale, 0, Math.PI * 2); bowlCtx.stroke();
-                bowlCtx.fillText(`${g.toFixed(2)}G`, bCenter + 5, bCenter - (g * bScale) + 12);
-            }
-
-            // Jerk
-            jerkCtx.clearRect(0, 0, 500, 400); jerkCtx.fillStyle = '#0f172a'; jerkCtx.fillRect(0, 0, 500, 400);
-            jerkCtx.strokeStyle = '#1e293b'; jerkCtx.beginPath();
-            jerkCtx.moveTo(padding, padding); jerkCtx.lineTo(padding, 350); jerkCtx.lineTo(450, 350); jerkCtx.stroke();
-            jerkCtx.fillStyle = '#475569'; jerkCtx.textAlign = 'center';
-            for (let i = 0; i <= 10; i += 2) {
-                let x = padding + (i / 10 / jMaxX) * pWidth;
-                jerkCtx.fillText((i / 10).toFixed(1), x, 370);
-            }
-            jerkCtx.fillText('Jerk / 加加加速度 XY合算 (G/s)', 250, 390);
-            jerkCtx.textAlign = 'right'; jerkCtx.textBaseline = 'middle';
-            for (let i = 0; i <= 5; i += 1) {
-                let y = 350 - (i / 10 / jMaxY) * pHeight;
-                jerkCtx.fillText((i / 10).toFixed(1), padding - 10, y);
-            }
-
-            // Vertical 
-            verticalCtx.clearRect(0, 0, 1000, 200); verticalCtx.strokeStyle = '#1e293b';
-            verticalCtx.beginPath(); verticalCtx.moveTo(padding, 100); verticalCtx.lineTo(padding + vWidth, 100); verticalCtx.stroke();
-            verticalCtx.fillStyle = '#475569'; verticalCtx.font = '10px sans-serif';
-            verticalCtx.fillText('0G', padding - 5, 100);
-            verticalCtx.fillText('+0.5G', padding - 5, 50);
-            verticalCtx.fillText('-0.5G', padding - 5, 150);
-
-            // Scatter
-            scatterCtx.clearRect(0, 0, 800, 350);
-            scatterCtx.strokeStyle = '#1e293b'; scatterCtx.fillStyle = '#475569';
-            scatterCtx.beginPath();
-            scatterCtx.moveTo(sPadding, sPadding);
-            scatterCtx.lineTo(sPadding, 350 - sPadding); // Y axis
-            scatterCtx.lineTo(800 - sPadding, 350 - sPadding); // X axis
-            scatterCtx.stroke();
-            scatterCtx.textAlign = 'center'; scatterCtx.textBaseline = 'top';
-            scatterCtx.fillText('運転要因 [ XY軸 合成G + Jerk値 ]', 400, 350 - sPadding + 15);
-
-            scatterCtx.save();
-            scatterCtx.translate(sPadding - 25, 175);
-            scatterCtx.rotate(-Math.PI / 2);
-            scatterCtx.textAlign = 'center';
-            scatterCtx.fillText('路面要因 [ Z軸 Jerk衝撃 ]', 0, 0);
-            scatterCtx.restore();
-        }
-
-        function processAndPlot() {
-            if (rawData.length === 0) { drawGrids(); return; }
-
-            // Filter data based on selected trip
-            const selectedTripId = runSelect.value;
-            let displayData = rawData;
-            if (selectedTripId !== 'all') {
-                const trip = currentTrips.find(t => t.id === selectedTripId);
-                if (trip) {
-                    displayData = rawData.slice(trip.startIndex, trip.endIndex + 1);
-                }
-            }
-
-            if (displayData.length === 0) { drawGrids(); return; }
-
-            const windowSize = parseInt(filterSlider.value);
-            filterValueDisplay.innerText = `現在の設定: 過去 ${windowSize} サンプル (約 ${(windowSize * 0.05).toFixed(2)} 秒)`;
-
-            const gMax = parseFloat(gBowlMaxSelect.value);
-            const bScale = 200 / gMax;
-            drawGrids();
-
-            let processedData = [];
-            for (let i = 0; i < displayData.length; i++) {
-                let sumX = 0; let sumY = 0; let count = 0;
-                for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
-                    sumX += displayData[j].rawX; sumY += displayData[j].rawY; count++;
-                }
-
-                let smoothX = sumX / count; let smoothY = sumY / count;
-                processedData.push({
-                    time: displayData[i].time,
-                    uncomf: displayData[i].uncomf,
-                    sX: smoothX, sY: smoothY,
-                    rawZ: displayData[i].rawZ,
-                    jerkZ: displayData[i].jerkZ,
-                    sG: Math.sqrt(smoothX ** 2 + smoothY ** 2),
-                    jerk: displayData[i].jerk || 0,
-                    yaw: displayData[i].yaw || 0,
-                    lat: displayData[i].lat, lon: displayData[i].lon
-                });
-            }
-
-            for (let i = 1; i < processedData.length; i++) {
-                if (processedData[i].jerk === 0) {
-                    let dt = (processedData[i].time - processedData[i - 1].time) / 1000;
-                    if (dt > 0) processedData[i].jerk = Math.abs((processedData[i].sG - processedData[i - 1].sG) / dt);
-                }
-            }
-
-            const getJX = (j) => padding + (Math.min(j, jMaxX) / jMaxX) * pWidth;
-            const getJY = (g) => 350 - (Math.min(g, jMaxY) / jMaxY) * pHeight;
-
-            // Scatter max limits for scaling
-            const scMaxX = 1.5; // (XY Jerk + XY G*2) max expectation
-            const scMaxY = 3.0; // Z Jerk max expectation
-            const getScX = (drvFactor) => sPadding + (Math.min(drvFactor, scMaxX) / scMaxX) * sWidth;
-            const getScY = (roadFactor) => (350 - sPadding) - (Math.min(roadFactor, scMaxY) / scMaxY) * sHeight;
-
-            let safeC = 0, dangerC = 0, roadC = 0;
-            const useRoadFilter = roadFilterCheck.checked;
-            const zThresh = parseFloat(zThresholdSlider.value);
-            zThresholdValue.innerText = zThresh.toFixed(2) + " G/s";
-            const lookbackTime = parseFloat(lookbackSlider.value);
-            lookbackValue.innerText = lookbackTime.toFixed(1) + " 秒";
-
-            const showSafe = showSafeCheck.checked;
-            const showDriver = showDriverCheck.checked;
-            const showRoad = showRoadCheck.checked;
-
-            // Draw Lines for Vertical G
-            verticalCtx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
-            verticalCtx.beginPath();
-            processedData.forEach((p, idx) => {
-                let vx = padding + (idx / processedData.length) * vWidth;
-                let vy = 100 - (p.rawZ * 100);
-                if (idx === 0) verticalCtx.moveTo(vx, vy); else verticalCtx.lineTo(vx, vy);
-            });
-            verticalCtx.stroke();
-
-            // Safe Points
-            if (showSafe) {
-                bowlCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
-                jerkCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
-                processedData.forEach(p => {
-                    if (p.uncomf === 0) {
-                        bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 2, 0, Math.PI * 2); bowlCtx.fill();
-                        jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 2, 0, Math.PI * 2); jerkCtx.fill();
-                    }
-                });
-            }
-            processedData.forEach(p => { if (p.uncomf === 0) safeC++; });
-
-            // Danger Points mapping
-            let driverDangerPoints = [];
-
-            processedData.forEach((p, idx) => {
-                if (p.uncomf === 1) {
-                    let isRoad = false;
-                    let evalZJerk = Math.abs(p.jerkZ);
-
-                    // ルックバック：設定された秒数（ミリ秒）だけ過去に遡って最大のZ衝撃を探す
-                    if (useRoadFilter && lookbackTime > 0) {
-                        let lookbackMs = lookbackTime * 1000;
-                        for (let j = idx; j >= 0; j--) {
-                            if (p.time - processedData[j].time > lookbackMs) break;
-                            let absZ = Math.abs(processedData[j].jerkZ);
-                            if (absZ > evalZJerk) evalZJerk = absZ;
+                        bowlCtx.font = '10px sans-serif';
+                        let step = (gMax <= 0.3) ? 0.05 : 0.1;
+                        for (let g = step; g <= gMax; g += step) {
+                            bowlCtx.beginPath(); bowlCtx.arc(bCenter, bCenter, g * bScale, 0, Math.PI * 2); bowlCtx.stroke();
+                            bowlCtx.fillText(`${g.toFixed(2)}G`, bCenter + 5, bCenter - (g * bScale) + 12);
                         }
-                    }
 
-                    // 路面フィルターがON、かつZ軸の衝撃が設定閾値を超えている場合
-                    if (useRoadFilter && evalZJerk > zThresh) {
-                        isRoad = true;
-                        roadC++;
-                    } else {
-                        driverDangerPoints.push(p);
-                        dangerC++;
-                    }
-
-                    // Bowl & Jerk Plots
-                    if ((isRoad && showRoad) || (!isRoad && showDriver)) {
-                        if (isRoad) {
-                            bowlCtx.fillStyle = 'rgba(251, 140, 0, 0.8)'; // Orange
-                            jerkCtx.fillStyle = 'rgba(251, 140, 0, 0.8)';
-                        } else {
-                            bowlCtx.fillStyle = 'rgba(244, 67, 54, 0.8)'; // Red
-                            jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.8)';
+                        // Jerk
+                        jerkCtx.clearRect(0, 0, 500, 400); jerkCtx.fillStyle = '#0f172a'; jerkCtx.fillRect(0, 0, 500, 400);
+                        jerkCtx.strokeStyle = '#1e293b'; jerkCtx.beginPath();
+                        jerkCtx.moveTo(padding, padding); jerkCtx.lineTo(padding, 350); jerkCtx.lineTo(450, 350); jerkCtx.stroke();
+                        jerkCtx.fillStyle = '#475569'; jerkCtx.textAlign = 'center';
+                        for (let i = 0; i <= 10; i += 2) {
+                            let x = padding + (i / 10 / jMaxX) * pWidth;
+                            jerkCtx.fillText((i / 10).toFixed(1), x, 370);
                         }
-                        bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 3, 0, Math.PI * 2); bowlCtx.fill();
-                        jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 3, 0, Math.PI * 2); jerkCtx.fill();
+                        jerkCtx.fillText('Jerk / 加加加速度 XY合算 (G/s)', 250, 390);
+                        jerkCtx.textAlign = 'right'; jerkCtx.textBaseline = 'middle';
+                        for (let i = 0; i <= 5; i += 1) {
+                            let y = 350 - (i / 10 / jMaxY) * pHeight;
+                            jerkCtx.fillText((i / 10).toFixed(1), padding - 10, y);
+                        }
 
-                        // Scatter Plot Mapping
-                        let drvFactor = p.sG * 2.0 + p.jerk;
-                        let roadFactor = evalZJerk;
-                        scatterCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 0.8)' : 'rgba(244, 67, 54, 0.8)';
+                        // Vertical 
+                        verticalCtx.clearRect(0, 0, 1000, 200); verticalCtx.strokeStyle = '#1e293b';
+                        verticalCtx.beginPath(); verticalCtx.moveTo(padding, 100); verticalCtx.lineTo(padding + vWidth, 100); verticalCtx.stroke();
+                        verticalCtx.fillStyle = '#475569'; verticalCtx.font = '10px sans-serif';
+                        verticalCtx.fillText('0G', padding - 5, 100);
+                        verticalCtx.fillText('+0.5G', padding - 5, 50);
+                        verticalCtx.fillText('-0.5G', padding - 5, 150);
+
+                        // Scatter
+                        scatterCtx.clearRect(0, 0, 800, 350);
+                        scatterCtx.strokeStyle = '#1e293b'; scatterCtx.fillStyle = '#475569';
                         scatterCtx.beginPath();
-                        scatterCtx.arc(getScX(drvFactor), getScY(roadFactor), 4, 0, Math.PI * 2);
-                        scatterCtx.fill();
+                        scatterCtx.moveTo(sPadding, sPadding);
+                        scatterCtx.lineTo(sPadding, 350 - sPadding); // Y axis
+                        scatterCtx.lineTo(800 - sPadding, 350 - sPadding); // X axis
+                        scatterCtx.stroke();
+                        scatterCtx.textAlign = 'center'; scatterCtx.textBaseline = 'top';
+                        scatterCtx.fillText('運転要因 [ XY軸 合成G + Jerk値 ]', 400, 350 - sPadding + 15);
 
-                        // Overlay on Vertical Canvas
-                        let vx = padding + (idx / processedData.length) * vWidth;
-                        verticalCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 1)' : 'rgba(244, 67, 54, 1)';
-                        verticalCtx.beginPath();
-                        verticalCtx.arc(vx, 100 - (p.rawZ * 100), 4, 0, Math.PI * 2);
-                        verticalCtx.fill();
+                        scatterCtx.save();
+                        scatterCtx.translate(sPadding - 25, 175);
+                        scatterCtx.rotate(-Math.PI / 2);
+                        scatterCtx.textAlign = 'center';
+                        scatterCtx.fillText('路面要因 [ Z軸 Jerk衝撃 ]', 0, 0);
+                        scatterCtx.restore();
                     }
-                }
-            });
 
-            // Calculate Thresholds based ONLY on Driver Danger Points
-            if (driverDangerPoints.length >= 20) {
-                let p5Index = Math.floor(driverDangerPoints.length * 0.05); // Top 95%
-                let sortedAbsGx = driverDangerPoints.map(p => Math.abs(p.sX)).sort((a, b) => a - b);
-                let sortedAbsGy = driverDangerPoints.map(p => Math.abs(p.sY)).sort((a, b) => a - b);
-                let sortedJerk = driverDangerPoints.map(p => p.jerk).sort((a, b) => a - b);
-                let sortedG = driverDangerPoints.map(p => p.sG).sort((a, b) => a - b);
+                    function processAndPlot() {
+                        if (rawData.length === 0) { drawGrids(); return; }
 
-                let threshGx = sortedAbsGx[p5Index]; let threshGy = sortedAbsGy[p5Index];
-                let threshJerk = sortedJerk[p5Index]; let threshG = sortedG[p5Index];
+                        // Filter data based on selected trip
+                        const selectedTripId = runSelect.value;
+                        let displayData = rawData;
+                        if (selectedTripId !== 'all') {
+                            const trip = currentTrips.find(t => t.id === selectedTripId);
+                            if (trip) {
+                                displayData = rawData.slice(trip.startIndex, trip.endIndex + 1);
+                            }
+                        }
 
-                // Draw Threshold Ellipse on Bowl
-                bowlCtx.beginPath();
-                if (typeof bowlCtx.ellipse === 'function') {
-                    bowlCtx.ellipse(bCenter, bCenter, threshGx * bScale, threshGy * bScale, 0, 0, Math.PI * 2);
-                } else {
-                    bowlCtx.arc(bCenter, bCenter, Math.max(threshGx, threshGy) * bScale, 0, Math.PI * 2);
-                }
-                bowlCtx.strokeStyle = 'rgba(255, 59, 48, 0.8)'; bowlCtx.lineWidth = 2;
-                bowlCtx.setLineDash([5, 5]); bowlCtx.stroke(); bowlCtx.setLineDash([]);
+                        if (displayData.length === 0) { drawGrids(); return; }
 
-                // Draw Threshold lines on Jerk Canvas
-                jerkCtx.strokeStyle = 'rgba(255, 59, 48, 0.8)'; jerkCtx.lineWidth = 2; jerkCtx.setLineDash([5, 5]);
-                let tJx = getJX(threshJerk); jerkCtx.beginPath(); jerkCtx.moveTo(tJx, padding); jerkCtx.lineTo(tJx, 350); jerkCtx.stroke();
-                let tGy = getJY(threshG); jerkCtx.beginPath(); jerkCtx.moveTo(padding, tGy); jerkCtx.lineTo(450, tGy); jerkCtx.stroke();
-                jerkCtx.setLineDash([]);
-                jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.08)';
-                jerkCtx.fillRect(tJx, padding, 450 - tJx, tGy - padding);
+                        const windowSize = parseInt(filterSlider.value);
+                        filterValueDisplay.innerText = `現在の設定: 過去 ${windowSize} サンプル (約 ${(windowSize * 0.05).toFixed(2)} 秒)`;
 
-                thresholdDisplay.style.display = 'block';
-                thresholdValues.innerHTML = `
+                        const gMax = parseFloat(gBowlMaxSelect.value);
+                        const bScale = 200 / gMax;
+                        drawGrids();
+
+                        let processedData = [];
+                        for (let i = 0; i < displayData.length; i++) {
+                            let sumX = 0; let sumY = 0; let count = 0;
+                            for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
+                                sumX += displayData[j].rawX; sumY += displayData[j].rawY; count++;
+                            }
+
+                            let smoothX = sumX / count; let smoothY = sumY / count;
+                            processedData.push({
+                                time: displayData[i].time,
+                                uncomf: displayData[i].uncomf,
+                                sX: smoothX, sY: smoothY,
+                                rawZ: displayData[i].rawZ,
+                                jerkZ: displayData[i].jerkZ,
+                                sG: Math.sqrt(smoothX ** 2 + smoothY ** 2),
+                                jerk: displayData[i].jerk || 0,
+                                yaw: displayData[i].yaw || 0,
+                                lat: displayData[i].lat, lon: displayData[i].lon
+                            });
+                        }
+
+                        for (let i = 1; i < processedData.length; i++) {
+                            if (processedData[i].jerk === 0) {
+                                let dt = (processedData[i].time - processedData[i - 1].time) / 1000;
+                                if (dt > 0) processedData[i].jerk = Math.abs((processedData[i].sG - processedData[i - 1].sG) / dt);
+                            }
+                        }
+
+                        const getJX = (j) => padding + (Math.min(j, jMaxX) / jMaxX) * pWidth;
+                        const getJY = (g) => 350 - (Math.min(g, jMaxY) / jMaxY) * pHeight;
+
+                        // Scatter max limits for scaling
+                        const scMaxX = 1.5; // (XY Jerk + XY G*2) max expectation
+                        const scMaxY = 3.0; // Z Jerk max expectation
+                        const getScX = (drvFactor) => sPadding + (Math.min(drvFactor, scMaxX) / scMaxX) * sWidth;
+                        const getScY = (roadFactor) => (350 - sPadding) - (Math.min(roadFactor, scMaxY) / scMaxY) * sHeight;
+
+                        let safeC = 0, dangerC = 0, roadC = 0;
+                        const useRoadFilter = roadFilterCheck.checked;
+                        const zThresh = parseFloat(zThresholdSlider.value);
+                        zThresholdValue.innerText = zThresh.toFixed(2) + " G/s";
+                        const lookbackTime = parseFloat(lookbackSlider.value);
+                        lookbackValue.innerText = lookbackTime.toFixed(1) + " 秒";
+
+                        const showSafe = showSafeCheck.checked;
+                        const showDriver = showDriverCheck.checked;
+                        const showRoad = showRoadCheck.checked;
+
+                        // Draw Lines for Vertical G
+                        verticalCtx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
+                        verticalCtx.beginPath();
+                        processedData.forEach((p, idx) => {
+                            let vx = padding + (idx / processedData.length) * vWidth;
+                            let vy = 100 - (p.rawZ * 100);
+                            if (idx === 0) verticalCtx.moveTo(vx, vy); else verticalCtx.lineTo(vx, vy);
+                        });
+                        verticalCtx.stroke();
+
+                        // Safe Points
+                        if (showSafe) {
+                            bowlCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
+                            jerkCtx.fillStyle = 'rgba(76, 175, 80, 0.15)';
+                            processedData.forEach(p => {
+                                if (p.uncomf === 0) {
+                                    bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 2, 0, Math.PI * 2); bowlCtx.fill();
+                                    jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 2, 0, Math.PI * 2); jerkCtx.fill();
+                                }
+                            });
+                        }
+                        processedData.forEach(p => { if (p.uncomf === 0) safeC++; });
+
+                        // Danger Points mapping
+                        let driverDangerPoints = [];
+
+                        processedData.forEach((p, idx) => {
+                            if (p.uncomf === 1) {
+                                let isRoad = false;
+                                let evalZJerk = Math.abs(p.jerkZ);
+
+                                // ルックバック：設定された秒数（ミリ秒）だけ過去に遡って最大のZ衝撃を探す
+                                if (useRoadFilter && lookbackTime > 0) {
+                                    let lookbackMs = lookbackTime * 1000;
+                                    for (let j = idx; j >= 0; j--) {
+                                        if (p.time - processedData[j].time > lookbackMs) break;
+                                        let absZ = Math.abs(processedData[j].jerkZ);
+                                        if (absZ > evalZJerk) evalZJerk = absZ;
+                                    }
+                                }
+
+                                // 路面フィルターがON、かつZ軸の衝撃が設定閾値を超えている場合
+                                if (useRoadFilter && evalZJerk > zThresh) {
+                                    isRoad = true;
+                                    roadC++;
+                                } else {
+                                    driverDangerPoints.push(p);
+                                    dangerC++;
+                                }
+
+                                // Bowl & Jerk Plots
+                                if ((isRoad && showRoad) || (!isRoad && showDriver)) {
+                                    if (isRoad) {
+                                        bowlCtx.fillStyle = 'rgba(251, 140, 0, 0.8)'; // Orange
+                                        jerkCtx.fillStyle = 'rgba(251, 140, 0, 0.8)';
+                                    } else {
+                                        bowlCtx.fillStyle = 'rgba(244, 67, 54, 0.8)'; // Red
+                                        jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.8)';
+                                    }
+                                    bowlCtx.beginPath(); bowlCtx.arc(bCenter + (p.sX * bScale), bCenter - (p.sY * bScale), 3, 0, Math.PI * 2); bowlCtx.fill();
+                                    jerkCtx.beginPath(); jerkCtx.arc(getJX(p.jerk), getJY(p.sG), 3, 0, Math.PI * 2); jerkCtx.fill();
+
+                                    // Scatter Plot Mapping
+                                    let drvFactor = p.sG * 2.0 + p.jerk;
+                                    let roadFactor = evalZJerk;
+                                    scatterCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 0.8)' : 'rgba(244, 67, 54, 0.8)';
+                                    scatterCtx.beginPath();
+                                    scatterCtx.arc(getScX(drvFactor), getScY(roadFactor), 4, 0, Math.PI * 2);
+                                    scatterCtx.fill();
+
+                                    // Overlay on Vertical Canvas
+                                    let vx = padding + (idx / processedData.length) * vWidth;
+                                    verticalCtx.fillStyle = isRoad ? 'rgba(251, 140, 0, 1)' : 'rgba(244, 67, 54, 1)';
+                                    verticalCtx.beginPath();
+                                    verticalCtx.arc(vx, 100 - (p.rawZ * 100), 4, 0, Math.PI * 2);
+                                    verticalCtx.fill();
+                                }
+                            }
+                        });
+
+                        // Calculate Thresholds based ONLY on Driver Danger Points
+                        if (driverDangerPoints.length >= 20) {
+                            let p5Index = Math.floor(driverDangerPoints.length * 0.05); // Top 95%
+                            let sortedAbsGx = driverDangerPoints.map(p => Math.abs(p.sX)).sort((a, b) => a - b);
+                            let sortedAbsGy = driverDangerPoints.map(p => Math.abs(p.sY)).sort((a, b) => a - b);
+                            let sortedJerk = driverDangerPoints.map(p => p.jerk).sort((a, b) => a - b);
+                            let sortedG = driverDangerPoints.map(p => p.sG).sort((a, b) => a - b);
+
+                            let threshGx = sortedAbsGx[p5Index]; let threshGy = sortedAbsGy[p5Index];
+                            let threshJerk = sortedJerk[p5Index]; let threshG = sortedG[p5Index];
+
+                            // Draw Threshold Ellipse on Bowl
+                            bowlCtx.beginPath();
+                            if (typeof bowlCtx.ellipse === 'function') {
+                                bowlCtx.ellipse(bCenter, bCenter, threshGx * bScale, threshGy * bScale, 0, 0, Math.PI * 2);
+                            } else {
+                                bowlCtx.arc(bCenter, bCenter, Math.max(threshGx, threshGy) * bScale, 0, Math.PI * 2);
+                            }
+                            bowlCtx.strokeStyle = 'rgba(255, 59, 48, 0.8)'; bowlCtx.lineWidth = 2;
+                            bowlCtx.setLineDash([5, 5]); bowlCtx.stroke(); bowlCtx.setLineDash([]);
+
+                            // Draw Threshold lines on Jerk Canvas
+                            jerkCtx.strokeStyle = 'rgba(255, 59, 48, 0.8)'; jerkCtx.lineWidth = 2; jerkCtx.setLineDash([5, 5]);
+                            let tJx = getJX(threshJerk); jerkCtx.beginPath(); jerkCtx.moveTo(tJx, padding); jerkCtx.lineTo(tJx, 350); jerkCtx.stroke();
+                            let tGy = getJY(threshG); jerkCtx.beginPath(); jerkCtx.moveTo(padding, tGy); jerkCtx.lineTo(450, tGy); jerkCtx.stroke();
+                            jerkCtx.setLineDash([]);
+                            jerkCtx.fillStyle = 'rgba(244, 67, 54, 0.08)';
+                            jerkCtx.fillRect(tJx, padding, 450 - tJx, tGy - padding);
+
+                            thresholdDisplay.style.display = 'block';
+                            thresholdValues.innerHTML = `
                     <div>Lateral (左右): <b>${threshGx.toFixed(2)} G</b></div>
                     <div>Longitudinal (前後): <b>${threshGy.toFixed(2)} G</b></div>
                     <div>Jerk (衝撃): <b>${threshJerk.toFixed(2)} G/s</b></div>
                     <div>Combined (合成): <b>${threshG.toFixed(2)} G</b></div>
                 `;
-            } else {
-                thresholdDisplay.style.display = 'none';
-                if (dangerC > 0 && dangerC < 20) {
-                    document.getElementById('statsDisplay').innerText += " | ※閾値算出には操作起因の不快データが20件以上必要です";
-                }
-            }
-
-            let msg = `Data: ${processedData.length} | Comfort: ${safeC} | Driver Uncomfort: ${dangerC}`;
-            if (useRoadFilter) msg += ` | Road Bump Uncomfort: ${roadC}`;
-            document.getElementById('statsDisplay').innerText = msg;
-        }
-
-        async function syncFromCloud(isAuto) {
-            if (!isAuto) {
-                document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
-                syncBtn.disabled = true;
-            }
-            try {
-                const response = await fetch(gasUrl + "?t=" + Date.now());
-                if (!response.ok) throw new Error("Server response was " + response.status);
-
-                const data = await response.json();
-                if (data && data.length > 0) {
-                    rawData = data.map(row => ({
-                        time: parseInt(row.time_ms), uncomf: parseInt(row.uncomfortable),
-                        rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
-                        jerkZ: parseFloat(row.jerk_Z || 0),
-                        jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
-                        yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
-                        age: row.age || 0, exp: row.exp || 0
-                    }));
-                    rawData.sort((a, b) => a.time - b.time);
-
-                    // Group into Trips based on time gaps (> 1 minute)
-                    const GAP_THRESHOLD_MS = 60000;
-                    currentTrips = [];
-                    if (rawData.length > 0) {
-                        let tripStartIdx = 0;
-                        for (let i = 1; i < rawData.length; i++) {
-                            if (rawData[i].time - rawData[i - 1].time > GAP_THRESHOLD_MS) {
-                                // Close current trip
-                                currentTrips.push({
-                                    id: `trip_${tripStartIdx}`,
-                                    startIndex: tripStartIdx,
-                                    endIndex: i - 1,
-                                    startTime: rawData[tripStartIdx].time,
-                                    age: rawData[tripStartIdx].age,
-                                    exp: rawData[tripStartIdx].exp
-                                });
-                                tripStartIdx = i;
+                        } else {
+                            thresholdDisplay.style.display = 'none';
+                            if (dangerC > 0 && dangerC < 20) {
+                                document.getElementById('statsDisplay').innerText += " | ※閾値算出には操作起因の不快データが20件以上必要です";
                             }
                         }
-                        // Add last trip
-                        currentTrips.push({
-                            id: `trip_${tripStartIdx}`,
-                            startIndex: tripStartIdx,
-                            endIndex: rawData.length - 1,
-                            startTime: rawData[tripStartIdx].time,
-                            age: rawData[tripStartIdx].age,
-                            exp: rawData[tripStartIdx].exp
-                        });
+
+                        let msg = `Data: ${processedData.length} | Comfort: ${safeC} | Driver Uncomfort: ${dangerC}`;
+                        if (useRoadFilter) msg += ` | Road Bump Uncomfort: ${roadC}`;
+                        document.getElementById('statsDisplay').innerText = msg;
                     }
 
-                    // Update Selector UI
-                    const previousSelection = runSelect.value;
-                    runSelect.innerHTML = '<option value="all">すべての走行データ (全体を表示)</option>';
-                    currentTrips.forEach((t, i) => {
-                        const date = new Date(t.startTime);
-                        const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-                        const label = `${i + 1}：${t.age}歳/歴${t.exp}年 (${timeStr}〜)`;
-                        const opt = document.createElement("option");
-                        opt.value = t.id;
-                        opt.textContent = label;
-                        runSelect.appendChild(opt);
+                    async function syncFromCloud(isAuto) {
+                        if (!isAuto) {
+                            document.getElementById('statsDisplay').innerText = "☁️ クラウドからデータ取得中...";
+                            syncBtn.disabled = true;
+                        }
+                        try {
+                            const response = await fetch(gasUrl + "?t=" + Date.now());
+                            if (!response.ok) throw new Error("Server response was " + response.status);
+
+                            const data = await response.json();
+                            if (data && data.length > 0) {
+                                rawData = data.map(row => ({
+                                    time: parseInt(row.time_ms), uncomf: parseInt(row.uncomfortable),
+                                    rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
+                                    jerkZ: parseFloat(row.jerk_Z || 0),
+                                    jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
+                                    yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
+                                    age: row.age || 0, exp: row.exp || 0
+                                }));
+                                rawData.sort((a, b) => a.time - b.time);
+
+                                // Group into Trips based on time gaps (> 1 minute)
+                                const GAP_THRESHOLD_MS = 60000;
+                                currentTrips = [];
+                                if (rawData.length > 0) {
+                                    let tripStartIdx = 0;
+                                    for (let i = 1; i < rawData.length; i++) {
+                                        if (rawData[i].time - rawData[i - 1].time > GAP_THRESHOLD_MS) {
+                                            // Close current trip
+                                            currentTrips.push({
+                                                id: `trip_${tripStartIdx}`,
+                                                startIndex: tripStartIdx,
+                                                endIndex: i - 1,
+                                                startTime: rawData[tripStartIdx].time,
+                                                age: rawData[tripStartIdx].age,
+                                                exp: rawData[tripStartIdx].exp
+                                            });
+                                            tripStartIdx = i;
+                                        }
+                                    }
+                                    // Add last trip
+                                    currentTrips.push({
+                                        id: `trip_${tripStartIdx}`,
+                                        startIndex: tripStartIdx,
+                                        endIndex: rawData.length - 1,
+                                        startTime: rawData[tripStartIdx].time,
+                                        age: rawData[tripStartIdx].age,
+                                        exp: rawData[tripStartIdx].exp
+                                    });
+                                }
+
+                                // Update Selector UI
+                                const previousSelection = runSelect.value;
+                                runSelect.innerHTML = '<option value="all">すべての走行データ (全体を表示)</option>';
+                                currentTrips.forEach((t, i) => {
+                                    const date = new Date(t.startTime);
+                                    const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+                                    const label = `${i + 1}：${t.age}歳/歴${t.exp}年 (${timeStr}〜)`;
+                                    const opt = document.createElement("option");
+                                    opt.value = t.id;
+                                    opt.textContent = label;
+                                    runSelect.appendChild(opt);
+                                });
+                                if ([...runSelect.options].some(o => o.value === previousSelection)) {
+                                    runSelect.value = previousSelection;
+                                }
+
+                                processAndPlot();
+                                if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
+                            } else {
+                                if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした (配信なし)";
+                                rawData = []; processAndPlot();
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            if (!isAuto) document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
+                        } finally {
+                            if (!isAuto) syncBtn.disabled = false;
+                        }
+                    }
+
+                    // Event Listeners
+                    autoRefreshCheck.addEventListener('change', () => {
+                        if (autoRefreshCheck.checked) {
+                            syncFromCloud(true);
+                            refreshInterval = setInterval(() => syncFromCloud(true), 5000);
+                        } else {
+                            clearInterval(refreshInterval);
+                        }
                     });
-                    if ([...runSelect.options].some(o => o.value === previousSelection)) {
-                        runSelect.value = previousSelection;
+
+                    syncBtn.addEventListener('click', () => syncFromCloud(false));
+                    filterSlider.addEventListener('input', processAndPlot);
+                    roadFilterCheck.addEventListener('change', processAndPlot);
+                    gBowlMaxSelect.addEventListener('change', processAndPlot);
+                    zThresholdSlider.addEventListener('input', processAndPlot);
+                    lookbackSlider.addEventListener('input', processAndPlot);
+                    runSelect.addEventListener('change', processAndPlot);
+                    showSafeCheck.addEventListener('change', processAndPlot);
+                    showDriverCheck.addEventListener('change', processAndPlot);
+                    showRoadCheck.addEventListener('change', processAndPlot);
+
+                    // Modal Logic
+                    const settingsModal = document.getElementById('settingsModal');
+                    const settingsBtn = document.getElementById('settingsBtn');
+                    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+
+                    settingsBtn.addEventListener('click', () => { settingsModal.style.display = 'flex'; });
+                    closeSettingsBtn.addEventListener('click', () => { settingsModal.style.display = 'none'; });
+                    settingsModal.addEventListener('click', (e) => {
+                        if (e.target === settingsModal) settingsModal.style.display = 'none';
+                    });
+
+                    document.getElementById('resetBtn').addEventListener('click', async () => {
+                        const pass = prompt("データリセット用パスワードを入力してください (7710)");
+                        if (!pass || pass !== '7710') { if (pass) alert("パスワードが違います"); return; }
+                        if (!confirm("本当にすべてのデータを削除しますか？\n(スプレッドシートの全行が消去されます)")) return;
+                        try {
+                            await fetch(gasUrl, { method: 'POST', mode: 'no-cors', cache: 'no-cache', body: JSON.stringify({ action: 'reset', password: pass }) });
+                            alert("リセット命令を送信しました。1〜2秒待ってから同期ボタンを押してください。");
+                            rawData = []; processAndPlot();
+                        } catch (e) { alert("リセット失敗: " + e.message); }
+                    });
+
+                    async function requestWakeLock() {
+                        try {
+                            if ('wakeLock' in navigator) {
+                                wakeLock = await navigator.wakeLock.request('screen');
+                            }
+                        } catch (err) { console.error(`${err.name}, ${err.message}`); }
                     }
 
-                    processAndPlot();
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "✅ 同期完了 (" + rawData.length + " 件)";
-                } else {
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "⚠️ データが見つかりませんでした (配信なし)";
-                    rawData = []; processAndPlot();
-                }
-            } catch (e) {
-                console.error(e);
-                if (!isAuto) document.getElementById('statsDisplay').innerText = "❌ 同期失敗: " + e.message;
-            } finally {
-                if (!isAuto) syncBtn.disabled = false;
-            }
-        }
+                    window.addEventListener('load', async () => {
+                        await requestWakeLock();
+                        drawGrids();
+                        syncFromCloud(false);
+                    });
 
-        // Event Listeners
-        autoRefreshCheck.addEventListener('change', () => {
-            if (autoRefreshCheck.checked) {
-                syncFromCloud(true);
-                refreshInterval = setInterval(() => syncFromCloud(true), 5000);
-            } else {
-                clearInterval(refreshInterval);
-            }
-        });
+                    document.addEventListener('visibilitychange', async () => {
+                        if (document.visibilityState === 'visible') await requestWakeLock();
+                    });
 
-        syncBtn.addEventListener('click', () => syncFromCloud(false));
-        filterSlider.addEventListener('input', processAndPlot);
-        roadFilterCheck.addEventListener('change', processAndPlot);
-        gBowlMaxSelect.addEventListener('change', processAndPlot);
-        zThresholdSlider.addEventListener('input', processAndPlot);
-        lookbackSlider.addEventListener('input', processAndPlot);
-        runSelect.addEventListener('change', processAndPlot);
-        showSafeCheck.addEventListener('change', processAndPlot);
-        showDriverCheck.addEventListener('change', processAndPlot);
-        showRoadCheck.addEventListener('change', processAndPlot);
-
-        document.getElementById('resetBtn').addEventListener('click', async () => {
-            const pass = prompt("データリセット用パスワードを入力してください (7710)");
-            if (!pass || pass !== '7710') { if (pass) alert("パスワードが違います"); return; }
-            if (!confirm("本当にすべてのデータを削除しますか？\n(スプレッドシートの全行が消去されます)")) return;
-            try {
-                await fetch(gasUrl, { method: 'POST', mode: 'no-cors', cache: 'no-cache', body: JSON.stringify({ action: 'reset', password: pass }) });
-                alert("リセット命令を送信しました。1〜2秒待ってから同期ボタンを押してください。");
-                rawData = []; processAndPlot();
-            } catch (e) { alert("リセット失敗: " + e.message); }
-        });
-
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) { console.error(`${err.name}, ${err.message}`); }
-        }
-
-        window.addEventListener('load', async () => {
-            await requestWakeLock();
-            drawGrids();
-            syncFromCloud(false);
-        });
-
-        document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible') await requestWakeLock();
-        });
-
-        document.addEventListener('touchstart', requestWakeLock, { once: true });
-    </script>
+                    document.addEventListener('touchstart', requestWakeLock, { once: true });
+                </script>
 </body>
 
 </html>
