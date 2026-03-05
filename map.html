@@ -226,6 +226,60 @@
         let polyline;
         let currentData = [];
 
+        /**
+         * IndexedDB Wrapper for Newton App
+         */
+        class NewtonDB {
+            constructor() {
+                this.dbName = "DrivingAppDB";
+                this.storeName = "logs";
+                this.db = null;
+            }
+
+            async open() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 2);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            db.createObjectStore(this.storeName, { keyPath: "time_ms" });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async getAll() {
+                if (!this.db) await this.open();
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(this.storeName, "readonly");
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async addItems(items) {
+                if (!this.db) await this.open();
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(this.storeName, "readwrite");
+                    const store = transaction.objectStore(this.storeName);
+                    items.forEach(item => {
+                        // GASからのデータをそのまま保存
+                        store.put(item);
+                    });
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+        }
+        const db = new NewtonDB();
+
         function applyFilter() {
             if (currentData && currentData.length > 0) {
                 plotOnMap(currentData);
@@ -272,58 +326,57 @@
         }
 
         async function fetchData() {
-            const CACHE_KEY = "driving_app_map_data";
             const urlParams = new URLSearchParams(window.location.search);
             const isIndividualEvent = urlParams.get('startTime') && urlParams.get('endTime');
 
-            // 個別イベント表示でない場合のみキャッシュを利用（特定イベントは常に最新を反映させるため）
-            if (!isIndividualEvent && currentData.length === 0) {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    try {
-                        const parsed = JSON.parse(cached);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            currentData = parsed;
-                            applyFilter();
-                            document.getElementById('status').innerText = `⚡ キャッシュから表示中 (${parsed.length} 件)...`;
-                        }
-                    } catch (e) {
-                        console.error("Cache load error:", e);
+            // 1. 初回起動時、IndexedDBからローカルデータを読み込む
+            if (currentData.length === 0) {
+                try {
+                    const cachedData = await db.getAll();
+                    if (cachedData && cachedData.length > 0) {
+                        currentData = cachedData.sort((a, b) => a.time_ms - b.time_ms);
+                        applyFilter();
+                        document.getElementById('status').innerText = `⚡ ローカルDBから復元中 (${currentData.length} 件)...`;
                     }
+                    localStorage.removeItem("driving_app_map_data");
+                } catch (e) {
+                    console.error("IndexedDB Load Error:", e);
                 }
             }
 
-            document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
+            document.getElementById('status').innerText = "☁️ クラウドから差分データを取得中...";
             try {
-                // Add timestamp to bypass cache
-                const response = await fetch(gasUrl + "?type=map&t=" + Date.now());
+                // 最後に同期した時刻を取得
+                const lastSync = currentData.length > 0 ? Math.max(...currentData.map(d => parseInt(d.time_ms))) : 0;
+
+                // ?type=map を外し、フル解像度データを差分で取得するように変更（IndexedDB+差分同期により負荷を抑えつつ詳細化）
+                const response = await fetch(`${gasUrl}?since=${lastSync}&t=${Date.now()}`);
                 if (!response.ok) throw new Error("Server response was " + response.status);
 
                 const data = await response.json();
                 if (data && data.length > 0) {
-                    currentData = data;
+                    // DB保存
+                    await db.addItems(data);
 
-                    // 個別イベント表示でない場合にキャッシュ保存
-                    if (!isIndividualEvent) {
-                        try {
-                            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-                        } catch (e) {
-                            console.warn("Cache save error:", e);
-                        }
+                    // 重複を除外してマージ
+                    const existingTimes = new Set(currentData.map(d => parseInt(d.time_ms)));
+                    const uniqueNewItems = data.filter(item => !existingTimes.has(parseInt(item.time_ms)));
+
+                    if (uniqueNewItems.length > 0) {
+                        currentData = [...currentData, ...uniqueNewItems].sort((a, b) => a.time_ms - b.time_ms);
                     }
 
-                    // ステータス表示の更新
-                    if (isIndividualEvent) {
-                        document.getElementById('status').innerText = `✅ 特定イベントを表示中 (${data.length} 件)`;
-                    } else {
-                        document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
-                    }
+                    document.getElementById('status').innerText = isIndividualEvent
+                        ? `✅ 特定イベントを表示中 (${currentData.length} 件)`
+                        : `✅ 同期完了 (合計: ${currentData.length} / 新規: ${uniqueNewItems.length} 件)`;
 
                     applyFilter();
                 } else {
-                    document.getElementById('status').innerText = "⚠️ データが見つかりませんでした (配信なし)";
-                    if (polyline) polyline.setMap(null);
-                    markers.forEach(m => m.setMap(null));
+                    document.getElementById('status').innerText = `✅ 最新の状態です (合計: ${currentData.length} 件)`;
+                    if (currentData.length === 0) {
+                        if (polyline) polyline.setMap(null);
+                        markers.forEach(m => m.setMap(null));
+                    }
                 }
             } catch (e) {
                 console.error(e);

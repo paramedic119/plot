@@ -496,8 +496,70 @@
 
         const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
 
-        let rawData = []; // All data fetched
+        let rawData = []; // All data objects
         let currentTrips = []; // List of identified trips
+
+        /**
+         * IndexedDB Wrapper for Newton App
+         */
+        class NewtonDB {
+            constructor() {
+                this.dbName = "DrivingAppDB";
+                this.storeName = "logs";
+                this.db = null;
+            }
+
+            async open() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 2); // Version up for safety
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            db.createObjectStore(this.storeName, { keyPath: "time_ms" });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async getAll() {
+                if (!this.db) await this.open();
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(this.storeName, "readonly");
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async addItems(items) {
+                if (!this.db) await this.open();
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(this.storeName, "readwrite");
+                    const store = transaction.objectStore(this.storeName);
+                    items.forEach(item => {
+                        // DB保存用に time_ms フィールドを確実に持たせる
+                        item.time_ms = item.time;
+                        store.put(item);
+                    });
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            async clear() {
+                if (!this.db) await this.open();
+                const transaction = this.db.transaction(this.storeName, "readwrite");
+                transaction.objectStore(this.storeName).clear();
+            }
+        }
+
+        const db = new NewtonDB();
         let wakeLock = null;
         let refreshInterval = null;
 
@@ -768,67 +830,75 @@
         }
 
         async function syncFromCloud(isAuto) {
-            const CACHE_KEY = "driving_app_full_data";
+            const statsEl = document.getElementById('statsDisplay');
 
-            // 初回（自動更新でない場合）かつメモリにデータがない場合、キャッシュから復元
+            // 1. 初回起動時、IndexedDBからローカルデータを読み込む
             if (!isAuto && rawData.length === 0) {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    try {
-                        const parsed = JSON.parse(cached);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            handleNewData(parsed);
-                            document.getElementById('statsDisplay').innerText = `⚡ キャッシュから復元中 (${parsed.length} 件)...`;
-                        }
-                    } catch (e) {
-                        console.error("Cache load error:", e);
+                try {
+                    const cachedData = await db.getAll();
+                    if (cachedData && cachedData.length > 0) {
+                        rawData = cachedData.sort((a, b) => a.time - b.time);
+                        updateTripsAndUI();
+                        statsEl.innerText = `⚡ ローカルDBから復元中 (${rawData.length} 件)...`;
                     }
+                    // 古い localStorage キャッシュがあれば削除（移行）
+                    localStorage.removeItem("driving_app_full_data");
+                } catch (e) {
+                    console.error("IndexedDB Load Error:", e);
                 }
             }
 
             if (!isAuto) {
-                if (rawData.length === 0) document.getElementById('statsDisplay').innerText = "クラウドからデータ取得中...";
+                if (rawData.length === 0) statsEl.innerText = "クラウドからデータ取得中...";
                 syncBtn.disabled = true;
             }
+
             try {
-                const response = await fetch(gasUrl + "?t=" + Date.now());
+                // 最後に同期した時刻を取得
+                const lastSync = rawData.length > 0 ? Math.max(...rawData.map(d => d.time)) : 0;
+
+                // 差分（since）を指定してフェッチ
+                const response = await fetch(`${gasUrl}?since=${lastSync}&t=${Date.now()}`);
                 if (!response.ok) throw new Error("Server response was " + response.status);
 
                 const data = await response.json();
                 if (data && data.length > 0) {
-                    // キャッシュに保存
-                    try {
-                        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-                    } catch (e) {
-                        console.warn("Cache save error (quota?):", e);
+                    const newItems = data.map(row => ({
+                        time: parseInt(row.time_ms),
+                        uncomf: parseInt(row.uncomfortable),
+                        rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
+                        jerkZ: parseFloat(row.jerk_Z || 0),
+                        jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
+                        yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
+                        age: row.age || 0, exp: row.exp || 0
+                    }));
+
+                    // 重複を除外してマージ
+                    const existingTimes = new Set(rawData.map(d => d.time));
+                    const uniqueNewItems = newItems.filter(item => !existingTimes.has(item.time));
+
+                    if (uniqueNewItems.length > 0) {
+                        // DBに保存
+                        await db.addItems(uniqueNewItems);
+                        // メモリ更新
+                        rawData = [...rawData, ...uniqueNewItems].sort((a, b) => a.time - b.time);
+                        updateTripsAndUI();
                     }
 
-                    handleNewData(data);
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "同期完了 (" + rawData.length + " 件)";
+                    if (!isAuto) statsEl.innerText = `同期完了 (合計: ${rawData.length} / 新規: ${uniqueNewItems.length} 件)`;
                 } else {
-                    if (!isAuto) document.getElementById('statsDisplay').innerText = "データが見つかりませんでした (配信なし)";
-                    rawData = []; processAndPlot();
+                    if (!isAuto) statsEl.innerText = `最新の状態です (合計: ${rawData.length} 件)`;
                 }
             } catch (e) {
                 console.error(e);
-                if (!isAuto) document.getElementById('statsDisplay').innerText = "同期失敗: " + e.message;
+                if (!isAuto) statsEl.innerText = "同期失敗: " + e.message;
             } finally {
                 if (!isAuto) syncBtn.disabled = false;
             }
         }
 
-        // 新しいデータを処理してUIを更新する共通ロジック
-        function handleNewData(data) {
-            rawData = data.map(row => ({
-                time: parseInt(row.time_ms), uncomf: parseInt(row.uncomfortable),
-                rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
-                jerkZ: parseFloat(row.jerk_Z || 0),
-                jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
-                yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
-                age: row.age || 0, exp: row.exp || 0
-            }));
-            rawData.sort((a, b) => a.time - b.time);
-
+        // 走行セッションの抽出とUIの再描画を行う共用ロジック
+        function updateTripsAndUI() {
             // Group into Trips based on time gaps (> 1 minute)
             const GAP_THRESHOLD_MS = 60000;
             currentTrips = [];

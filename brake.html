@@ -92,7 +92,7 @@
             padding: 20px;
             margin-bottom: 24px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
@@ -338,6 +338,16 @@
                     <span>短い</span><span>長い</span>
                 </div>
             </div>
+            <div class="control-group">
+                <div class="control-label">
+                    <span>スムージング (平滑化)</span>
+                    <span id="filterVal">5 サンプル</span>
+                </div>
+                <input type="range" id="filterSlider" min="1" max="50" step="1" value="5">
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b;">
+                    <span>細かく</span><span>滑らか</span>
+                </div>
+            </div>
         </div>
 
         <div id="emptyState">
@@ -354,10 +364,67 @@
         let rawData = [];
         let processedData = [];
 
+        /**
+         * IndexedDB Wrapper for Newton App
+         */
+        class NewtonDB {
+            constructor() {
+                this.dbName = "DrivingAppDB";
+                this.storeName = "logs";
+                this.db = null;
+            }
+
+            async open() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 2);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            db.createObjectStore(this.storeName, { keyPath: "time_ms" });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async getAll() {
+                if (!this.db) await this.open();
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(this.storeName, "readonly");
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async addItems(items) {
+                if (!this.db) await this.open();
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(this.storeName, "readwrite");
+                    const store = transaction.objectStore(this.storeName);
+                    items.forEach(item => {
+                        item.time_ms = item.time;
+                        store.put(item);
+                    });
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+        }
+
+        const db = new NewtonDB();
+
         const threshSlider = document.getElementById('threshSlider');
         const threshVal = document.getElementById('threshVal');
         const durSlider = document.getElementById('durSlider');
         const durVal = document.getElementById('durVal');
+        const filterSlider = document.getElementById('filterSlider');
+        const filterVal = document.getElementById('filterVal');
         const eventList = document.getElementById('eventList');
         const emptyState = document.getElementById('emptyState');
         const statusEl = document.getElementById('status');
@@ -372,71 +439,78 @@
             analyzeBrakes();
         });
 
-        async function fetchData() {
-            const CACHE_KEY = "driving_app_full_data";
+        filterSlider.addEventListener('input', () => {
+            filterVal.innerText = `${filterSlider.value} サンプル`;
+            preprocessData();
+            analyzeBrakes();
+        });
 
-            // 初回読み込み時、キャッシュがあれば表示
+        async function fetchData() {
+            // 1. 初回起動時、IndexedDBからローカルデータを読み込む
             if (rawData.length === 0) {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    try {
-                        const parsed = JSON.parse(cached);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            handleNewData(parsed);
-                            statusEl.innerText = `⚡ キャッシュから復元中 (${parsed.length} 件)...`;
-                        }
-                    } catch (e) {
-                        console.error("Cache load error:", e);
+                try {
+                    const cachedData = await db.getAll();
+                    if (cachedData && cachedData.length > 0) {
+                        rawData = cachedData.sort((a, b) => a.time - b.time);
+                        preprocessData();
+                        analyzeBrakes();
+                        statusEl.innerText = `⚡ ローカルDBから復元中 (${rawData.length} 件)...`;
                     }
+                    // 古い localStorage キャッシュがあれば削除（移行）
+                    localStorage.removeItem("driving_app_full_data");
+                } catch (e) {
+                    console.error("IndexedDB Load Error:", e);
                 }
             }
 
             try {
-                const response = await fetch(gasUrl + "?t=" + Date.now());
+                // 最後に同期した時刻を取得
+                const lastSync = rawData.length > 0 ? Math.max(...rawData.map(d => d.time)) : 0;
+
+                // 差分を指定してフェッチ
+                const response = await fetch(`${gasUrl}?since=${lastSync}&t=${Date.now()}`);
                 if (!response.ok) throw new Error("Server Error");
                 const data = await response.json();
 
                 if (data && data.length > 0) {
-                    // キャッシュ保存
-                    try {
-                        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-                    } catch (e) {
-                        console.warn("Cache save error:", e);
-                    }
+                    const newItems = data.map(row => {
+                        const jX = parseFloat(row.jerk_X) || 0;
+                        const jY = parseFloat(row.jerk_Y) || 0;
+                        const jZ = parseFloat(row.jerk_Z) || 0;
+                        return {
+                            time: parseInt(row.time_ms),
+                            uncomf: parseInt(row.uncomfortable),
+                            rawX: parseFloat(row.rawG_X) || 0,
+                            rawY: parseFloat(row.rawG_Y) || 0,
+                            rawZ: parseFloat(row.rawG_Z) || 0,
+                            jerkZ: jZ,
+                            jerk: Math.sqrt(jX ** 2 + jY ** 2 + jZ ** 2)
+                        };
+                    });
 
-                    handleNewData(data);
-                    statusEl.innerText = `同期完了 (${rawData.length} 件)`;
+                    const existingTimes = new Set(rawData.map(d => d.time));
+                    const uniqueNewItems = newItems.filter(item => !existingTimes.has(item.time));
+
+                    if (uniqueNewItems.length > 0) {
+                        // 新規分をDB保存
+                        await db.addItems(uniqueNewItems);
+                        // メモリ更新
+                        rawData = [...rawData, ...uniqueNewItems].sort((a, b) => a.time - b.time);
+                        preprocessData();
+                        analyzeBrakes();
+                    }
+                    statusEl.innerText = `同期完了 (合計: ${rawData.length} / 新規: ${uniqueNewItems.length} 件)`;
                 } else {
-                    statusEl.innerText = "データなし";
+                    statusEl.innerText = `最新の状態です (合計: ${rawData.length} 件)`;
                 }
             } catch (e) {
                 statusEl.innerText = "エラー: " + e.message;
             }
         }
 
-        function handleNewData(data) {
-            rawData = data.map(row => {
-                const jX = parseFloat(row.jerk_X) || 0;
-                const jY = parseFloat(row.jerk_Y) || 0;
-                const jZ = parseFloat(row.jerk_Z) || 0;
-                return {
-                    time: parseInt(row.time_ms),
-                    uncomf: parseInt(row.uncomfortable),
-                    rawX: parseFloat(row.rawG_X) || 0,
-                    rawY: parseFloat(row.rawG_Y) || 0,
-                    rawZ: parseFloat(row.rawG_Z) || 0,
-                    jerkZ: jZ,
-                    jerk: Math.sqrt(jX ** 2 + jY ** 2 + jZ ** 2)
-                };
-            }).sort((a, b) => a.time - b.time);
-
-            preprocessData();
-            analyzeBrakes();
-        }
-
         function preprocessData() {
             processedData = [];
-            const windowSize = 5; // Fixed small smoothing for brake analysis
+            const windowSize = parseInt(filterSlider.value);
             for (let i = 0; i < rawData.length; i++) {
                 let sumY = 0; let count = 0;
                 for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
