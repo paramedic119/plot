@@ -237,6 +237,30 @@
             will-change: transform;
         }
 
+        /* G-Bowl */
+        .gbowl-wrapper {
+            flex: 0 0 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .gbowl-title {
+            font-size: 0.65rem;
+            color: #64748b;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .gbowl-canvas {
+            border-radius: 50%;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+        }
+
         .event-action {
             flex: 0 0 100px;
             display: flex;
@@ -594,6 +618,8 @@
                 const cardId = `brake-card-${i}`;
                 const canvasId = `brake-canvas-${i}`;
 
+                const gbowlCanvasId = `gbowl-canvas-${i}`;
+
                 const card = document.createElement('div');
                 card.className = `event-card ${hasUncomf ? 'has-uncomf' : ''}`;
                 card.id = cardId;
@@ -614,6 +640,10 @@
                         <div class="graph-title">前G (Longitudinal Deceleration) 波形</div>
                         <canvas id="${canvasId}" width="400" height="100"></canvas>
                     </div>
+                    <div class="gbowl-wrapper">
+                        <div class="gbowl-title">G-Bowl</div>
+                        <canvas id="${gbowlCanvasId}" class="gbowl-canvas" width="120" height="120" title="タップで再生"></canvas>
+                    </div>
                     <div class="event-action">
                         <a href="map.html?startTime=${ev.startTime}&endTime=${ev.points[ev.points.length - 1].time}" class="btn-map">
                             <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
@@ -624,6 +654,7 @@
 
                 eventList.appendChild(card);
                 drawSparkline(canvasId, ev.points);
+                initGBowl(gbowlCanvasId, ev.points);
             });
         }
 
@@ -715,6 +746,189 @@
                     ctx.shadowBlur = 0;
                 }
             });
+        }
+
+        /**
+         * G-Bowl の初期化・アニメーション
+         * @param {string} canvasId - 対象canvasのID
+         * @param {Array} points - ブレーキイベントのデータ点配列
+         */
+        function initGBowl(canvasId, points) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            // G-Bowlの表示スケール: 0.3G でボウル端に達するように設定
+            const G_SCALE = 0.3;
+            // アニメーション1周の目標時間 (ms)
+            const ANIM_DURATION_MS = Math.min(3000, Math.max(1500, points.length * 30));
+            let animFrameId = null;
+            let isPlaying = false;
+
+            // 静止状態（全トレイル）を描画する関数
+            function drawStatic() {
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width;
+                const h = canvas.height;
+                const cx = w / 2;
+                const cy = h / 2;
+                const r = Math.min(cx, cy) - 4;
+                ctx.clearRect(0, 0, w, h);
+
+                // 外周リング
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // 中心十字線
+                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+
+                // 中間リング (0.15G相当)
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                ctx.stroke();
+
+                // 全トレイルを薄いグレーで描画
+                if (points.length > 1) {
+                    ctx.beginPath();
+                    points.forEach((p, i) => {
+                        // X軸: 横G（rawX）、Y軸: 前後G（sYを反転: 前Gは上方向）
+                        const px = cx + (p.rawX / G_SCALE) * r;
+                        const py = cy - (p.sY / G_SCALE) * r;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    });
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // 最終位置（静止ボール）を中心付近に表示
+                const lastP = points[points.length - 1];
+                const bx = cx + (lastP.rawX / G_SCALE) * r;
+                const by = cy - (lastP.sY / G_SCALE) * r;
+                ctx.beginPath();
+                ctx.arc(bx, by, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#a855f7';
+                ctx.fill();
+
+                // 再生アイコン（▶）
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('▶', cx, h - 4);
+            }
+
+            // アニメーション再生関数
+            function playAnimation() {
+                if (isPlaying) return;
+                isPlaying = true;
+                const startTime = performance.now();
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width;
+                const h = canvas.height;
+                const cx = w / 2;
+                const cy = h / 2;
+                const r = Math.min(cx, cy) - 4;
+
+                function drawBowlBase() {
+                    ctx.clearRect(0, 0, w, h);
+                    // 外周リング
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    // 十字線
+                    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+                    // 中間リング
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.stroke();
+                }
+
+                function frame(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / ANIM_DURATION_MS, 1.0);
+                    const idx = Math.floor(progress * (points.length - 1));
+
+                    drawBowlBase();
+
+                    // トレイル（経過した軌跡）
+                    if (idx > 0) {
+                        ctx.beginPath();
+                        for (let i = 0; i <= idx; i++) {
+                            const p = points[i];
+                            const px = cx + (p.rawX / G_SCALE) * r;
+                            const py = cy - (p.sY / G_SCALE) * r;
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        // 尾引きをグラデーションで表現（簡易: 単色で半透明）
+                        ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+
+                    // 現在のボール位置
+                    const cp = points[idx];
+                    const bx = cx + (cp.rawX / G_SCALE) * r;
+                    const by = cy - (cp.sY / G_SCALE) * r;
+
+                    // 不快感マーカー付近なら赤、そうでなければ紫
+                    const isUncomf = cp.uncomf === 1;
+                    const ballColor = isUncomf ? '#f87171' : '#c084fc';
+                    const glowColor = isUncomf ? 'rgba(248,113,113,0.6)' : 'rgba(192,132,252,0.4)';
+
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = glowColor;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = ballColor;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    if (progress < 1.0) {
+                        animFrameId = requestAnimationFrame(frame);
+                    } else {
+                        isPlaying = false;
+                        drawStatic(); // アニメ終了後に静止状態へ戻す
+                    }
+                }
+
+                animFrameId = requestAnimationFrame(frame);
+            }
+
+            // 初期描画
+            drawStatic();
+
+            // タップ/クリックで再生
+            canvas.addEventListener('click', () => {
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+                isPlaying = false;
+                playAnimation();
+            });
+
+            // 画面に入ったら自動再生（IntersectionObserver）
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !isPlaying) {
+                        playAnimation();
+                        observer.unobserve(canvas); // 初回一回だけ自動再生
+                    }
+                });
+            }, { threshold: 0.5 });
+            observer.observe(canvas);
         }
 
         window.onload = fetchData;
