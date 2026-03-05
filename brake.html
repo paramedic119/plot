@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRAKING ANALYTICS - Driving App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@600;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --primary: #c084fc;
+            --primary-dark: #a855f7;
+            --text: #f8fafc;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --danger: #f87171;
+            --warn: #fbbf24;
+            --good: #4ade80;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        header {
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Controls */
+        .controls-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+        }
+
+        /* Cards */
+        .event-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .event-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: stretch;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .event-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(192, 132, 252, 0.4);
+        }
+
+        /* Uncomf marker on card */
+        .event-card.has-uncomf::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+            background: var(--primary-dark);
+            box-shadow: 0 0 10px var(--primary-dark);
+        }
+
+        .event-info {
+            flex: 0 0 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .event-time {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .event-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            font-size: 1rem;
+            color: #fff;
+        }
+
+        .event-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: auto;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .badge.danger {
+            background: rgba(244, 67, 54, 0.2);
+            color: var(--danger);
+        }
+
+        .badge.warn {
+            background: rgba(251, 140, 0, 0.2);
+            color: var(--warn);
+        }
+
+        .badge.good {
+            background: rgba(76, 175, 80, 0.2);
+            color: var(--good);
+        }
+
+        .event-graph {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            position: relative;
+            min-height: 120px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .graph-title {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100px;
+            will-change: transform;
+        }
+
+        .event-action {
+            flex: 0 0 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 1px solid var(--glass-border);
+            padding-left: 20px;
+        }
+
+        .btn-map {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--primary);
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .btn-map:hover {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-map svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        #emptyState {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+            font-size: 1.1rem;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px dashed var(--glass-border);
+        }
+
+        @media (max-width: 768px) {
+            .event-card {
+                flex-direction: column;
+            }
+
+            .event-action {
+                border-left: none;
+                border-top: 1px solid var(--glass-border);
+                padding-left: 0;
+                padding-top: 15px;
+            }
+
+            .controls-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div>
+            <h1>BRAKING ANALYTICS</h1>
+            <div id="status" style="font-size: 0.8rem; color: #94a3b8; margin-top: 5px;">データを取得中...</div>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">統合グラフ</a>
+            <a href="map.html">地図分析</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="controls-panel">
+            <div class="control-group">
+                <div class="control-label">
+                    <span>ブレーキ判定閾値</span>
+                    <span id="threshVal">-0.05 G</span>
+                </div>
+                <input type="range" id="threshSlider" min="0.02" max="0.30" step="0.01" value="0.05">
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b;">
+                    <span>緩い</span><span>厳しい</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="control-label">
+                    <span>最小継続時間</span>
+                    <span id="durVal">2.0 秒</span>
+                </div>
+                <input type="range" id="durSlider" min="0.5" max="5.0" step="0.1" value="2.0">
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b;">
+                    <span>短い</span><span>長い</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="emptyState">
+            指定された条件（閾値未満のGが継続）に合致するブレーキイベントがありません。
+        </div>
+
+        <div class="event-list" id="eventList">
+            <!-- Cards will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
+        let rawData = [];
+        let processedData = [];
+
+        const threshSlider = document.getElementById('threshSlider');
+        const threshVal = document.getElementById('threshVal');
+        const durSlider = document.getElementById('durSlider');
+        const durVal = document.getElementById('durVal');
+        const eventList = document.getElementById('eventList');
+        const emptyState = document.getElementById('emptyState');
+        const statusEl = document.getElementById('status');
+
+        threshSlider.addEventListener('input', () => {
+            threshVal.innerText = `-${parseFloat(threshSlider.value).toFixed(2)} G`;
+            analyzeBrakes();
+        });
+
+        durSlider.addEventListener('input', () => {
+            durVal.innerText = `${parseFloat(durSlider.value).toFixed(1)} 秒`;
+            analyzeBrakes();
+        });
+
+        async function fetchData() {
+            const CACHE_KEY = "driving_app_full_data";
+
+            // 初回読み込み時、キャッシュがあれば表示
+            if (rawData.length === 0) {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            handleNewData(parsed);
+                            statusEl.innerText = `⚡ キャッシュから復元中 (${parsed.length} 件)...`;
+                        }
+                    } catch (e) {
+                        console.error("Cache load error:", e);
+                    }
+                }
+            }
+
+            try {
+                const response = await fetch(gasUrl + "?t=" + Date.now());
+                if (!response.ok) throw new Error("Server Error");
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    // キャッシュ保存
+                    try {
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                    } catch (e) {
+                        console.warn("Cache save error:", e);
+                    }
+
+                    handleNewData(data);
+                    statusEl.innerText = `同期完了 (${rawData.length} 件)`;
+                } else {
+                    statusEl.innerText = "データなし";
+                }
+            } catch (e) {
+                statusEl.innerText = "エラー: " + e.message;
+            }
+        }
+
+        function handleNewData(data) {
+            rawData = data.map(row => {
+                const jX = parseFloat(row.jerk_X) || 0;
+                const jY = parseFloat(row.jerk_Y) || 0;
+                const jZ = parseFloat(row.jerk_Z) || 0;
+                return {
+                    time: parseInt(row.time_ms),
+                    uncomf: parseInt(row.uncomfortable),
+                    rawX: parseFloat(row.rawG_X) || 0,
+                    rawY: parseFloat(row.rawG_Y) || 0,
+                    rawZ: parseFloat(row.rawG_Z) || 0,
+                    jerkZ: jZ,
+                    jerk: Math.sqrt(jX ** 2 + jY ** 2 + jZ ** 2)
+                };
+            }).sort((a, b) => a.time - b.time);
+
+            preprocessData();
+            analyzeBrakes();
+        }
+
+        function preprocessData() {
+            processedData = [];
+            const windowSize = 5; // Fixed small smoothing for brake analysis
+            for (let i = 0; i < rawData.length; i++) {
+                let sumY = 0; let count = 0;
+                for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
+                    sumY += rawData[j].rawY; count++;
+                }
+                processedData.push({
+                    ...rawData[i],
+                    sY: sumY / count
+                });
+            }
+        }
+
+        function analyzeBrakes() {
+            if (processedData.length === 0) return;
+
+            const gThresh = parseFloat(threshSlider.value);
+            const minTime = parseFloat(durSlider.value);
+
+            let events = [];
+            let current = null;
+
+            processedData.forEach((p, idx) => {
+                if (p.sY < -gThresh) {
+                    if (!current) {
+                        current = { startTime: p.time, points: [p] };
+                    } else {
+                        current.points.push(p);
+                    }
+                } else {
+                    if (current) {
+                        const dur = (p.time - current.startTime) / 1000;
+                        if (dur >= minTime) {
+                            current.duration = dur;
+                            events.push(current);
+                        }
+                        current = null;
+                    }
+                }
+            });
+
+            renderEvents(events);
+        }
+
+        function renderEvents(events) {
+            eventList.innerHTML = '';
+
+            if (events.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            events.reverse().forEach((ev, i) => { // 最新が上
+                const date = new Date(ev.startTime);
+                const timeStr = `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+                const dateStr = `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`;
+
+                const maxDecel = Math.min(...ev.points.map(p => p.sY));
+
+                // Analytics
+                const lastPoints = ev.points.slice(-15); // 約0.3秒
+                const stopJerk = lastPoints.length > 0 ? Math.max(...lastPoints.map(p => p.jerk)) : 0;
+
+                const mid = Math.floor(ev.points.length / 2);
+                const firstHalfG = ev.points.slice(0, mid).reduce((sum, p) => sum + p.sY, 0) / (mid || 1);
+                const secondHalfG = ev.points.slice(mid).reduce((sum, p) => sum + p.sY, 0) / (ev.points.length - mid || 1);
+                const isAdding = secondHalfG < firstHalfG - 0.05;
+                const hasUncomf = ev.points.some(p => p.uncomf === 1);
+                const maxZJerk = Math.max(...ev.points.map(p => Math.abs(p.jerkZ)));
+                const isRoadImpact = maxZJerk > 0.8; // 垂直振動が強い場合
+
+                let badges = '';
+                if (stopJerk > 0.4) badges += '<span class="badge danger">カックン停車(大)</span>';
+                else if (stopJerk > 0.2) badges += '<span class="badge warn">カックン停車</span>';
+                if (isAdding) badges += '<span class="badge warn">踏み増し</span>';
+                if (isRoadImpact) badges += '<span class="badge info" style="background: rgba(251, 140, 0, 0.2); color: #fb8c00; border: 1px solid #fb8c00;">路面影響の疑い</span>';
+                if (hasUncomf) badges += '<span class="badge danger">不快申告あり</span>';
+                if (badges === '') badges = '<span class="badge good">スムーズ</span>';
+
+                const cardId = `brake-card-${i}`;
+                const canvasId = `brake-canvas-${i}`;
+
+                const card = document.createElement('div');
+                card.className = `event-card ${hasUncomf ? 'has-uncomf' : ''}`;
+                card.id = cardId;
+
+                card.innerHTML = `
+                    <div class="event-info">
+                        <div style="font-size: 0.75rem; color: #94a3b8;">${dateStr}</div>
+                        <div class="event-time">${timeStr}</div>
+                        <div class="event-stats">
+                            <div><div>継続</div><div class="stat-value">${ev.duration.toFixed(1)}s</div></div>
+                            <div><div>最大G</div><div class="stat-value" style="color: var(--danger);">${maxDecel.toFixed(2)}</div></div>
+                            <div><div>Jerk</div><div class="stat-value">${stopJerk.toFixed(1)}</div></div>
+                            <div title="垂直方向の衝撃強度"><div>路面振動</div><div class="stat-value" style="color: #fb8c00;">${maxZJerk.toFixed(1)}</div></div>
+                        </div>
+                        <div class="event-badges">${badges}</div>
+                    </div>
+                    <div class="event-graph">
+                        <div class="graph-title">前G (Longitudinal Deceleration) 波形</div>
+                        <canvas id="${canvasId}" width="400" height="100"></canvas>
+                    </div>
+                    <div class="event-action">
+                        <a href="map.html?startTime=${ev.startTime}&endTime=${ev.points[ev.points.length - 1].time}" class="btn-map">
+                            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                            地図参照
+                        </a>
+                    </div>
+                `;
+
+                eventList.appendChild(card);
+                drawSparkline(canvasId, ev.points);
+            });
+        }
+
+        function drawSparkline(canvasId, points) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Setup styling
+            ctx.clearRect(0, 0, w, h);
+
+            // Dynamic Range calculation (減速Gの絶対値でスケールを決定)
+            const maxDecelRaw = Math.max(...points.map(p => Math.abs(p.sY)));
+            const currentThresh = parseFloat(threshSlider.value);
+            // スケールは「最大値または閾値」の大きい方の1.2倍、最低でも0.15G確保
+            const yLimit = Math.max(0.15, Math.max(maxDecelRaw, currentThresh) * 1.2);
+
+            // 上下反転: 0Gを最下部(h)、強い減速を上部(0)に配置
+            const getY = (val) => {
+                // 減速（マイナス値）のみを正の大きさとして扱う
+                const absVal = Math.abs(Math.min(0, val));
+                return h - (absVal / yLimit) * (h - 10) - 5; // 上下に少しマージン
+            };
+            const getX = (idx) => (idx / (points.length - 1)) * w;
+
+            // Draw Road Vibration Overlay (Z-axis Jerk) - 背景に薄いオレンジで表示
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(251, 140, 0, 0.15)';
+            points.forEach((p, i) => {
+                const zHeight = Math.min(h, (Math.abs(p.jerkZ) / 2.0) * h); // 最大2.0G/s程度でフル表示
+                if (i === 0) ctx.moveTo(getX(i), h);
+                ctx.lineTo(getX(i), h - zHeight);
+            });
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.fill();
+
+            // Draw Zero line (最下部)
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, getY(0));
+            ctx.lineTo(w, getY(0));
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Target/Threshold Line
+            const gThresh = -currentThresh;
+            ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, getY(gThresh));
+            ctx.lineTo(w, getY(gThresh));
+            ctx.stroke();
+
+            // Draw G Curve (上向きに伸びる波形)
+            ctx.beginPath();
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+
+            points.forEach((p, i) => {
+                const yPos = getY(p.sY);
+                if (i === 0) ctx.moveTo(getX(i), yPos);
+                else ctx.lineTo(getX(i), yPos);
+            });
+            ctx.stroke();
+
+            // Fill under curve
+            ctx.lineTo(w, getY(0));
+            ctx.lineTo(0, getY(0));
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.15)';
+            ctx.fill();
+
+            // Draw Uncomfort markers (波形上の対応点に描画)
+            points.forEach((p, i) => {
+                if (p.uncomf === 1) {
+                    ctx.fillStyle = '#f87171';
+                    ctx.beginPath();
+                    ctx.arc(getX(i), getY(p.sY), 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 外側に光彩
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#f87171';
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            });
+        }
+
+        window.onload = fetchData;
+    </script>
+</body>
+
+</html>

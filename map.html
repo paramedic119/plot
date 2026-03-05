@@ -49,6 +49,28 @@
             font-family: 'Outfit', sans-serif;
             font-size: 1rem;
             letter-spacing: 1px;
+            color: #10b981;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
         }
 
         #map {
@@ -119,8 +141,14 @@
 
 <body>
     <header>
-        <h1>MAP ANALYTICS</h1>
-        <div id="status">クラウドからデータを取得中...</div>
+        <div>
+            <h1>MAP ANALYTICS</h1>
+            <div id="status" style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">クラウドからデータを取得中...</div>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">統合グラフ</a>
+            <a href="brake.html">ブレーキ分析</a>
+        </div>
     </header>
 
     <div id="map"></div>
@@ -244,6 +272,27 @@
         }
 
         async function fetchData() {
+            const CACHE_KEY = "driving_app_map_data";
+            const urlParams = new URLSearchParams(window.location.search);
+            const isIndividualEvent = urlParams.get('startTime') && urlParams.get('endTime');
+
+            // 個別イベント表示でない場合のみキャッシュを利用（特定イベントは常に最新を反映させるため）
+            if (!isIndividualEvent && currentData.length === 0) {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            currentData = parsed;
+                            applyFilter();
+                            document.getElementById('status').innerText = `⚡ キャッシュから表示中 (${parsed.length} 件)...`;
+                        }
+                    } catch (e) {
+                        console.error("Cache load error:", e);
+                    }
+                }
+            }
+
             document.getElementById('status').innerText = "☁️ クラウドからデータを取得中...";
             try {
                 // Add timestamp to bypass cache
@@ -253,8 +302,24 @@
                 const data = await response.json();
                 if (data && data.length > 0) {
                     currentData = data;
+
+                    // 個別イベント表示でない場合にキャッシュ保存
+                    if (!isIndividualEvent) {
+                        try {
+                            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                        } catch (e) {
+                            console.warn("Cache save error:", e);
+                        }
+                    }
+
+                    // ステータス表示の更新
+                    if (isIndividualEvent) {
+                        document.getElementById('status').innerText = `✅ 特定イベントを表示中 (${data.length} 件)`;
+                    } else {
+                        document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
+                    }
+
                     applyFilter();
-                    document.getElementById('status').innerText = `✅ 同期完了 (${data.length} 件)`;
                 } else {
                     document.getElementById('status').innerText = "⚠️ データが見つかりませんでした (配信なし)";
                     if (polyline) polyline.setMap(null);
@@ -297,8 +362,18 @@
             document.getElementById('lookbackDisplay').innerText = `${lookbackTime.toFixed(1)} 秒`;
 
             // Step 1: Smooth data (SMA) & Calculate Smoothed Jerk
+            const urlParams = new URLSearchParams(window.location.search);
+            const startTime = parseInt(urlParams.get('startTime'));
+            const endTime = parseInt(urlParams.get('endTime'));
+
             let processedData = [];
             for (let i = 0; i < data.length; i++) {
+                const dTime = parseInt(data[i].time_ms);
+                // URLパラメータがある場合、該当時間範囲（前後1秒の猶予）以外をスキップ
+                if (startTime && endTime) {
+                    if (dTime < startTime - 1000 || dTime > endTime + 1000) continue;
+                }
+
                 let sumX = 0; let sumY = 0; let count = 0;
                 for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
                     sumX += parseFloat(data[j].rawG_X || 0);
@@ -425,7 +500,15 @@
                 map: map
             });
 
-            if (path.length > 0) map.fitBounds(bounds);
+            if (path.length > 0) {
+                if (urlParams.get('startTime')) {
+                    // 個別イベント表示時は、該当箇所にズーム（交差点が見える程度：18）
+                    map.setCenter(path[0]);
+                    map.setZoom(18);
+                } else {
+                    map.fitBounds(bounds);
+                }
+            }
         }
 
         window.onload = initMap;

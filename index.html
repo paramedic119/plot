@@ -233,6 +233,63 @@
                 width: 100%;
             }
         }
+
+        /* --- Analysis Table Styles --- */
+        .analysis-section {
+            display: none;
+        }
+
+        .analysis-table-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .analysis-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            color: #f8fafc;
+        }
+
+        .analysis-table th {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 2px solid var(--glass-border);
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .analysis-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .analysis-table tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .status-good {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4ade80;
+        }
+
+        .status-warn {
+            background: rgba(251, 140, 0, 0.2);
+            color: #fb8c00;
+        }
+
+        .status-danger {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f87171;
+        }
     </style>
 </head>
 
@@ -244,7 +301,9 @@
                 style="flex: 1; padding: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">最新に同期</button>
             <button id="resetBtn"
                 style="padding: 12px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">データリセット</button>
-            <a href="map.html" target="_blank"
+            <a href="brake.html"
+                style="flex: 1; padding: 12px; background: linear-gradient(135deg, #c084fc, #9333ea); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">ブレーキ解析</a>
+            <a href="map.html"
                 style="flex: 1; padding: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-block;">地図解析</a>
         </div>
         <label style="font-size: 0.9rem; color: #cbd5e1; cursor: pointer; display: inline-block; margin-bottom: 10px;">
@@ -354,6 +413,8 @@
             </div>
         </div>
 
+
+
         <div id="thresholdDisplay">
             <div class="threshold-title">自動算出された 運転操作の不快閾値限界</div>
             <div class="threshold-values" id="thresholdValues"></div>
@@ -406,6 +467,8 @@
         </div>
     </div>
 
+
+
     <script>
         const bowlCtx = document.getElementById('bowlCanvas').getContext('2d');
         const jerkCtx = document.getElementById('jerkCanvas').getContext('2d');
@@ -428,6 +491,8 @@
         const thresholdValues = document.getElementById('thresholdValues');
         const syncBtn = document.getElementById('syncBtn');
         const autoRefreshCheck = document.getElementById('autoRefreshCheck');
+
+
 
         const gasUrl = "https://script.google.com/macros/s/AKfycbyza-BCowCNcWYb-63gx1gd4UARcYTeJ8DXqv-rrZwcRryWqfZanAnXfyrf6jFxMEfDIA/exec";
 
@@ -652,6 +717,8 @@
                 }
             });
 
+
+
             // Calculate Thresholds based ONLY on Driver Danger Points
             if (driverDangerPoints.length >= 20) {
                 let p5Index = Math.floor(driverDangerPoints.length * 0.05); // Top 95%
@@ -701,8 +768,26 @@
         }
 
         async function syncFromCloud(isAuto) {
+            const CACHE_KEY = "driving_app_full_data";
+
+            // 初回（自動更新でない場合）かつメモリにデータがない場合、キャッシュから復元
+            if (!isAuto && rawData.length === 0) {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            handleNewData(parsed);
+                            document.getElementById('statsDisplay').innerText = `⚡ キャッシュから復元中 (${parsed.length} 件)...`;
+                        }
+                    } catch (e) {
+                        console.error("Cache load error:", e);
+                    }
+                }
+            }
+
             if (!isAuto) {
-                document.getElementById('statsDisplay').innerText = "クラウドからデータ取得中...";
+                if (rawData.length === 0) document.getElementById('statsDisplay').innerText = "クラウドからデータ取得中...";
                 syncBtn.disabled = true;
             }
             try {
@@ -711,63 +796,14 @@
 
                 const data = await response.json();
                 if (data && data.length > 0) {
-                    rawData = data.map(row => ({
-                        time: parseInt(row.time_ms), uncomf: parseInt(row.uncomfortable),
-                        rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
-                        jerkZ: parseFloat(row.jerk_Z || 0),
-                        jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
-                        yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
-                        age: row.age || 0, exp: row.exp || 0
-                    }));
-                    rawData.sort((a, b) => a.time - b.time);
-
-                    // Group into Trips based on time gaps (> 1 minute)
-                    const GAP_THRESHOLD_MS = 60000;
-                    currentTrips = [];
-                    if (rawData.length > 0) {
-                        let tripStartIdx = 0;
-                        for (let i = 1; i < rawData.length; i++) {
-                            if (rawData[i].time - rawData[i - 1].time > GAP_THRESHOLD_MS) {
-                                // Close current trip
-                                currentTrips.push({
-                                    id: `trip_${tripStartIdx}`,
-                                    startIndex: tripStartIdx,
-                                    endIndex: i - 1,
-                                    startTime: rawData[tripStartIdx].time,
-                                    age: rawData[tripStartIdx].age,
-                                    exp: rawData[tripStartIdx].exp
-                                });
-                                tripStartIdx = i;
-                            }
-                        }
-                        // Add last trip
-                        currentTrips.push({
-                            id: `trip_${tripStartIdx}`,
-                            startIndex: tripStartIdx,
-                            endIndex: rawData.length - 1,
-                            startTime: rawData[tripStartIdx].time,
-                            age: rawData[tripStartIdx].age,
-                            exp: rawData[tripStartIdx].exp
-                        });
+                    // キャッシュに保存
+                    try {
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                    } catch (e) {
+                        console.warn("Cache save error (quota?):", e);
                     }
 
-                    // Update Selector UI
-                    const previousSelection = runSelect.value;
-                    runSelect.innerHTML = '<option value="all">すべての走行データ (全体を表示)</option>';
-                    currentTrips.forEach((t, i) => {
-                        const date = new Date(t.startTime);
-                        const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-                        const label = `${i + 1}：${t.age}歳/歴${t.exp}年 (${timeStr}〜)`;
-                        const opt = document.createElement("option");
-                        opt.value = t.id;
-                        opt.textContent = label;
-                        runSelect.appendChild(opt);
-                    });
-                    if ([...runSelect.options].some(o => o.value === previousSelection)) {
-                        runSelect.value = previousSelection;
-                    }
-
-                    processAndPlot();
+                    handleNewData(data);
                     if (!isAuto) document.getElementById('statsDisplay').innerText = "同期完了 (" + rawData.length + " 件)";
                 } else {
                     if (!isAuto) document.getElementById('statsDisplay').innerText = "データが見つかりませんでした (配信なし)";
@@ -779,6 +815,65 @@
             } finally {
                 if (!isAuto) syncBtn.disabled = false;
             }
+        }
+
+        // 新しいデータを処理してUIを更新する共通ロジック
+        function handleNewData(data) {
+            rawData = data.map(row => ({
+                time: parseInt(row.time_ms), uncomf: parseInt(row.uncomfortable),
+                rawX: parseFloat(row.rawG_X), rawY: parseFloat(row.rawG_Y), rawZ: parseFloat(row.rawG_Z || 0),
+                jerkZ: parseFloat(row.jerk_Z || 0),
+                jerk: Math.sqrt(parseFloat(row.jerk_X || 0) ** 2 + parseFloat(row.jerk_Y || 0) ** 2),
+                yaw: parseFloat(row.yaw_rad || 0), lat: parseFloat(row.lat || 0), lon: parseFloat(row.lon || 0),
+                age: row.age || 0, exp: row.exp || 0
+            }));
+            rawData.sort((a, b) => a.time - b.time);
+
+            // Group into Trips based on time gaps (> 1 minute)
+            const GAP_THRESHOLD_MS = 60000;
+            currentTrips = [];
+            if (rawData.length > 0) {
+                let tripStartIdx = 0;
+                for (let i = 1; i < rawData.length; i++) {
+                    if (rawData[i].time - rawData[i - 1].time > GAP_THRESHOLD_MS) {
+                        currentTrips.push({
+                            id: `trip_${tripStartIdx}`,
+                            startIndex: tripStartIdx,
+                            endIndex: i - 1,
+                            startTime: rawData[tripStartIdx].time,
+                            age: rawData[tripStartIdx].age,
+                            exp: rawData[tripStartIdx].exp
+                        });
+                        tripStartIdx = i;
+                    }
+                }
+                currentTrips.push({
+                    id: `trip_${tripStartIdx}`,
+                    startIndex: tripStartIdx,
+                    endIndex: rawData.length - 1,
+                    startTime: rawData[tripStartIdx].time,
+                    age: rawData[tripStartIdx].age,
+                    exp: rawData[tripStartIdx].exp
+                });
+            }
+
+            // Update Selector UI
+            const previousSelection = runSelect.value;
+            runSelect.innerHTML = '<option value="all">すべての走行データ (全体を表示)</option>';
+            currentTrips.forEach((t, i) => {
+                const date = new Date(t.startTime);
+                const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+                const label = `${i + 1}：${t.age}歳/歴${t.exp}年 (${timeStr}〜)`;
+                const opt = document.createElement("option");
+                opt.value = t.id;
+                opt.textContent = label;
+                runSelect.appendChild(opt);
+            });
+            if ([...runSelect.options].some(o => o.value === previousSelection)) {
+                runSelect.value = previousSelection;
+            }
+
+            processAndPlot();
         }
 
         // Event Listeners
@@ -801,6 +896,7 @@
         showSafeCheck.addEventListener('change', processAndPlot);
         showDriverCheck.addEventListener('change', processAndPlot);
         showRoadCheck.addEventListener('change', processAndPlot);
+
 
         document.getElementById('resetBtn').addEventListener('click', async () => {
             const pass = prompt("データリセット用パスワードを入力してください (7710)");
